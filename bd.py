@@ -76,9 +76,6 @@ def raster_query():
 					#kwargs.update({  'crs': dst_crs, 'transform': transform, 'width': width,  'height': height  })
 					#dst = np.empty([750,1000])
 					#reproject(   source=data_array, destination=dst,  src_transform=dataset.transform, src_crs=dataset.crs, dst_transform=transform, dst_crs=dst_crs, resampling=Resampling.nearest)
-
-				
-
 				print(data_array.shape)
 				#print(data_array)
 
@@ -110,7 +107,7 @@ def raster_query():
 				print( value )
 
 
-# QUERY AVEC RASTER OUTPUT :
+# QUERY POUR TESTER VALEURS DANS TABLE altifr_p1 :
 def raster_point_query(longi,lati):
 	# ensure that the GTiff driver is available, 
 	# see https://postgis.net/docs/postgis_gdal_enabled_drivers.html
@@ -154,7 +151,6 @@ def main():
 	#print(srid)
 	#cProfile.run('raster_query()')
     raster_query()
-    
 
 
 if __name__== "__main__" :
