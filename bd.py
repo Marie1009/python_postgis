@@ -7,30 +7,66 @@ import unittest
 import numpy as np
 import timeit
 import time
+import csv
+
+from psycopg2 import OperationalError
+from psycopg2 import sql
 from rasterio import Affine as A
 from rasterio.warp import calculate_default_transform, reproject, Resampling
 from rasterio.io import MemoryFile
 
 
-# QUERYS SANS RASTER OUTPUT
-def simple_query():
-	# ensure that the GTiff driver is available, 
-	# see https://postgis.net/docs/postgis_gdal_enabled_drivers.html
-	conn = psycopg2.connect(database="postgis_test", user="postgres", host="localhost", password="admin")
-	cur = conn.cursor()
+def create_connection(db_name, db_user, db_password, db_host, db_port):
+    connection = None
+    try:
+        connection = psycopg2.connect(
+            database=db_name,
+            user=db_user,
+            password=db_password,
+            host=db_host,
+            port=db_port,
+        )
+        print("Connection to PostgreSQL DB successful")
+    except OperationalError as e:
+        print(f"The error '{e}' occurred")
+    return connection
 
-	# query pour recuperer des stats simples sur une intersection de 2 raster (calcul rast2 - rast1) :
-	#cur.execute("WITH test as (SELECT ST_Intersection(ST_Union(altifr_p1.rast), ST_Union(altifr_p2.rast)) FROM altifr_p1, altifr_p2)SELECT ST_SummaryStats(	ST_MapAlgebra(	test.st_intersection, 1,test.st_intersection, 2,'([rast2] - [rast1])') ) AS rast FROM test")
+def execute_read_query(connection, query):
+    cursor = connection.cursor()
+    result = None
+    try:
+        cursor.execute(query)
+        result = cursor.fetchall()
+        return result
+    except OperationalError as e:
+        print(f"The error '{e}' occurred")
 
-	# query qui recupere les valeurs des pixel pour une paire lat/long donnee : 
-	start = time.perf_counter()
 
-	cur.execute("SELECT ST_Value(altifr_p1.rast, ST_GeomFromText('POINT(175570.932 6796643.598)',2154)) FROM altifr_p1")
-	print(f"Executed in {time.perf_counter() - start:0.4f} seconds")
-	rows = cur.fetchall()
+def execute_read_query_param(connection,champ, table):
 
-	for row in rows:
-		print(row)
+	query = sql.SQL("select ST_AsGDALRaster(ST_Union({field}), 'GTiff') from {table}").format(field=sql.Identifier(champ),table=sql.Identifier(table))
+    #pkey=sql.Identifier('id'))
+
+	#query = sql.SQL("select {field} from {table} where {pkey} = %s").format(
+    #field=sql.Identifier('my_name'),
+    #table=sql.Identifier('some_table'),
+    #pkey=sql.Identifier('id'))
+
+	#query = sql.SQL("select {fields} from {table}").format(
+    #fields=sql.SQL(',').join([
+        #sql.Identifier('field1'),
+        #sql.Identifier('field2'),
+        #sql.Identifier('field3'),
+    #]),
+    #table=sql.Identifier('some_table'))
+	cursor = connection.cursor()
+	result = None
+	try:
+	    cursor.execute(query)
+	    result = cursor.fetchall()
+	    return result
+	except OperationalError as e:
+	    print(f"The error '{e}' occurred")
 
 
 def get_raster_srid(table):
@@ -44,83 +80,9 @@ def get_raster_srid(table):
 	return rows[0][0]
 	
 
-# QUERY AVEC RASTER OUTPUT :
-def raster_query():
-	# ensure that the GTiff driver is available, 
-	# see https://postgis.net/docs/postgis_gdal_enabled_drivers.html
-	conn = psycopg2.connect(database="postgis_test", user="postgres", host="localhost", password="admin")
-	cur = conn.cursor()
-
-	#query qui retourne une table raster
-	#avec ST_Union : retourne un raster sans tuiles 750x1000
-	start = time.perf_counter()
-	cur.execute("SELECT ST_AsGDALRaster(ST_Union(altifr_p1.rast), 'GTiff') FROM altifr_p1")
-	#sans union on recupere le raster decoupe en tuiles dans ce cas 250x250
-	#cur.execute("SELECT ST_AsGDALRaster(altifr_p1.rast, 'GTiff') FROM altifr_p1")
-	print(f"Executed in {time.perf_counter() - start:0.4f} seconds")
+def infos_raster(dataset):
+	return [dataset.crs, data_array.shape,dataset.bounds, dataset.transform, dataset.dtypes]
 	
-	rows = cur.fetchall()
-
-	value = 0 
-
-	for row in rows:
-		print(row)
-		#print(type(row[0]))
-		rast = bytes(row[0])
-
-		with MemoryFile(rast) as memfile:
-			with memfile.open() as dataset:
-
-				data_array = dataset.read(1)
-				#read(1) returns numpy array contenant les valeurs de raster pour la bande 1
-
-				print(dataset.crs)
-				#if dataset.crs != "ESPG:4326":
-					#dst_crs = 'EPSG:4326'
-					#transform, width, height = calculate_default_transform(dataset.crs, dst_crs, dataset.width, dataset.height, *dataset.bounds)			    
-					#kwargs = dataset.meta.copy()
-					#kwargs.update({  'crs': dst_crs, 'transform': transform, 'width': width,  'height': height  })
-					#dst = np.empty([750,1000])
-					#dst = dataset.read(1)
-					#print("ok")
-
-					#with MemoryFile() as mmfile:
-					#	reproject(   source=data_array, destination=dst,  src_transform=dataset.transform, src_crs=dataset.crs, dst_transform=transform, dst_crs=dst_crs, resampling=Resampling.nearest)
-					#	mmfile.write(dst)
-
-					#	with mmfile.open() as new_dataset:
-					#		new_array = new_dataset.read(1)
-					#		print(new_array)
-
-				print(data_array.shape)
-				#print(data_array)
-
-				#print(dst.shape)
-				print(data_array)
-				#print(data_array[0])
-				print(dataset.bounds)
-				
-				print(dataset.transform)
-				print(dataset.dtypes)
-				#print(dataset.xy(dataset.height // 2, dataset.width // 2))
-
-				longi = 160776.304
-				lati = 6784107.115
-				print(longi)
-				print(lati)
-
-
-				indices = dataset.index(longi,lati)
-				x = indices[0]
-				y = indices[1]
-				
-				#print(dataset.xy(x,y))
-				#print(dataset.xy(x+1,y+1))
-				#print(dataset.xy(x-1,y-1))
-
-				value = data_array[int(x+1)][int(y+1)]
-				print( value )
-
 
 # QUERY POUR TESTER VALEURS DANS TABLE altifr_p1 :
 def raster_point_query(longi,lati):
@@ -140,16 +102,17 @@ def raster_point_query(longi,lati):
 
 	for row in rows:
 		print(row)
-		#print(type(row[0]))
 		rast = bytes(row[0])
 
 		with MemoryFile(rast) as memfile:
 			with memfile.open() as dataset:
+
 				data_array = dataset.read(1)
 				#read(1) returns numpy array contenant les valeurs de raster pour la bande 1
-				#print(dataset.crs)
 							
 				indices = dataset.index(longi,lati)
+				#index(longi,lati) donne la position x,y du point dans le numpy array
+
 				x = indices[0]
 				y = indices[1]
 				
@@ -158,15 +121,63 @@ def raster_point_query(longi,lati):
 
 	return value 
 
+def get_queries():
+	with open('queries.txt') as csv_file:
+		csv_reader = csv.reader(csv_file, delimiter='#')
+		qdict = {}
+		#liste = []
+		#line_count = 0
+		for line in csv_reader:
+			qdict[line[0]] = line[1]
+
+	return qdict
+
+			# print (line)
+			#elt = bd.raster_point_query(float(line[0]),float(line[1]))
+			# verifie que elt = resultat attendu a 2 decimales pres
+			#self.assertAlmostEqual(elt, float(line[2]),2)
 
 def main():
 	#srid = get_raster_srid("altifr_p2")
 	#print(srid)
+
+	#START CONNECTION
+	connection = create_connection("postgis_test","postgres","admin","localhost","5432")
+	queries = get_queries()
+	#print(queries)
+
 	
-	start = time.perf_counter()
+	#start = time.perf_counter()
+	
+	#values = execute_read_query_param(connection, 'altifr_p1.rast', 'altifr_p1' )
+	f = open("results.txt", "w")
+	for key in queries.keys():
+		print(key)
+		start = time.perf_counter()
+		values = execute_read_query(connection,queries[key])
+		end = time.perf_counter()
+		runtime = end - start
+		f.write("{} executed in {} seconds \n".format(key,runtime))
+	
+	f.close()
+		
+	
+	#values = test_prepared(connection)
+
+	#end = time.perf_counter()
+	#runtime = start - end
+
+#	print(f"Executed in {runtime:0.4f} seconds")
+
+	#for val in values:
+#	    print(val)
+
+
+
+	#start = time.perf_counter()
 	#raster_query()
-	simple_query()
-	print(f"Executed in {time.perf_counter() - start:0.4f} seconds")
+	#simple_query()
+	#print(f"Executed in {time.perf_counter() - start:0.4f} seconds")
 
     
 
