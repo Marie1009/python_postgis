@@ -1,0 +1,12 @@
+select_intersection executed in 21.324266199999784 seconds 
+select_point_value executed in 0.06257430000005115 seconds 
+select_raster_altifr_p1 executed in 0.80196449999994 seconds 
+select_raster_0150_6825 executed in 0.9978562000001148 seconds 
+select_raster_0150_6825_o2 executed in 0.2246304999998756 seconds 
+select_raster_0150_6825_o4 executed in 0.05790849999993952 seconds 
+select_intersection executed in 21.33703949999972 seconds 
+select_point_value executed in 0.02182700000003024 seconds 
+select_raster_altifr_p1 executed in 0.8858835999999428 seconds 
+select_raster_0150_6825 executed in 0.9570300000000316 seconds 
+select_raster_0150_6825_o2 executed in 0.2354867999997623 seconds 
+select_raster_0150_6825_o4 executed in 0.05773859999999331 seconds 

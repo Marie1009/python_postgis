@@ -32,19 +32,28 @@ def create_connection(db_name, db_user, db_password, db_host, db_port):
     return connection
 
 def execute_read_query(connection, query):
-    cursor = connection.cursor()
-    result = None
-    try:
-        cursor.execute(query)
-        result = cursor.fetchall()
-        return result
-    except OperationalError as e:
-        print(f"The error '{e}' occurred")
+	cursor = connection.cursor()
+	result = None
+	try:
+		start = time.perf_counter()
+		cursor.execute(query)
+		end = time.perf_counter()
+		runtime = end - start
+		#f.write("{} executed in {} seconds \n".format(key,runtime))
+
+		result = cursor.fetchall()
+		return [result,runtime]
+	except OperationalError as e:
+		print(f"The error '{e}' occurred")
 
 
 def execute_read_query_param(connection,champ, table):
+	
 
 	query = sql.SQL("select ST_AsGDALRaster(ST_Union({field}), 'GTiff') from {table}").format(field=sql.Identifier(champ),table=sql.Identifier(table))
+    
+
+
     #pkey=sql.Identifier('id'))
 
 	#query = sql.SQL("select {field} from {table} where {pkey} = %s").format(
@@ -132,10 +141,40 @@ def get_queries():
 
 	return qdict
 
-			# print (line)
-			#elt = bd.raster_point_query(float(line[0]),float(line[1]))
-			# verifie que elt = resultat attendu a 2 decimales pres
-			#self.assertAlmostEqual(elt, float(line[2]),2)
+def start_queries(mode,connection,queries_dict):
+	keys = queries_dict.keys()
+	print(keys)
+	keys_list = []
+	#mode "normal" pas de changement on fait les requetes a la suite comme elles sont dans le dict
+	if mode == 0:
+		keys_list = keys
+
+	#mode double : on fait chaque requete 2 fois a la suite
+	elif mode == 1:
+		for e in keys:
+			keys_list.append(e)
+			keys_list.append(e)
+			
+	#mode aleatoire : on melange les requetes aleatoirement
+	elif mode == 2:
+		keys_list = random.sample(keys,len(keys))
+	
+
+	f = open("results_{}.txt".format(mode), "w")
+	for key in keys_list:
+		print(key)
+		results = execute_read_query(connection,queries_dict[key])
+		values = results[0]
+		runtime = results[1]
+		f.write("{} executed in {} seconds \n".format(key,runtime))
+	f.close()
+
+	
+
+
+
+
+
 
 def main():
 	#srid = get_raster_srid("altifr_p2")
@@ -143,24 +182,10 @@ def main():
 
 	#START CONNECTION
 	connection = create_connection("postgis_test","postgres","admin","localhost","5432")
-	queries = get_queries()
-	#print(queries)
-
+	queries_dict = get_queries()
 	
-	#start = time.perf_counter()
 	
-	#values = execute_read_query_param(connection, 'altifr_p1.rast', 'altifr_p1' )
-	f = open("results.txt", "w")
-	for key in queries.keys():
-		print(key)
-		start = time.perf_counter()
-		values = execute_read_query(connection,queries[key])
-		end = time.perf_counter()
-		runtime = end - start
-		f.write("{} executed in {} seconds \n".format(key,runtime))
-	
-	f.close()
-		
+	start_queries(0,connection,queries_dict)
 	
 	#values = test_prepared(connection)
 
