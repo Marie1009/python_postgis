@@ -1,0 +1,3 @@
+select_raster_0150_6825#SELECT ST_AsGDALRaster(ST_Union(altifr_75m_0150_6825.rast), 'GTiff') FROM altifr_75m_0150_6825
+select_raster_0150_6825_o2#SELECT ST_AsGDALRaster(ST_Union(o_2_altifr_75m_0150_6825.rast), 'GTiff') FROM o_2_altifr_75m_0150_6825
+select_raster_0150_6825_o4#SELECT ST_AsGDALRaster(ST_Union(o_4_altifr_75m_0150_6825.rast), 'GTiff') FROM o_4_altifr_75m_0150_6825
