@@ -6,9 +6,11 @@ import timeit
 import time
 import random
 import csv
+import matplotlib.pyplot as plt
 
 from psycopg2 import OperationalError
 from psycopg2 import sql
+from psycopg2 import pool
 from rasterio.io import MemoryFile
 
 
@@ -27,19 +29,56 @@ def create_connection(db_name, db_user, db_password, db_host, db_port):
         print(f"The error '{e}' occurred")
     return connection
 
+def create_connection_pool(min_co, max_co, db_name, db_user, db_password, db_host, db_port):
+	try:
+		threaded_postgreSQL_pool = psycopg2.pool.ThreadedConnectionPool(min_co, max_co, user = db_user,
+		                          password = db_password,
+		                          host = db_host,
+		                          port = db_port,
+		                          database = db_name)
+		if(threaded_postgreSQL_pool):
+			print("Connection pool created successfully using ThreadedConnectionPool")
+
+	except (Exception, psycopg2.DatabaseError) as error :
+		print ("Error while connecting to PostgreSQL", error)
+
+	return threaded_postgreSQL_pool
+
+def query_with_pool(pool, query):
+
+	# Use getconn() method to Get Connection from connection pool
+	ps_connection  = pool.getconn()
+
+	if(ps_connection):
+
+		print("successfully recived connection from connection pool ")
+		results = execute_read_query(ps_connection, query)
+		
+	#Use this method to release the connection object and send back ti connection pool
+	pool.putconn(ps_connection)
+	print("Put away a PostgreSQL connection")
+
+	return results
+
+
 def execute_read_query(connection, query):
-	cursor = connection.cursor()
+	#cursor = connection.cursor()
 	result = None
 	try:
-		start = time.perf_counter()
-		cursor.execute(query)
-		end = time.perf_counter()
-		runtime_exe = end - start
-		#f.write("{} executed in {} seconds \n".format(key,runtime))
+		with connection:
+			with connection.cursor() as curs:
+				start = time.perf_counter()
+				curs.execute(query)
+				end = time.perf_counter()
+				runtime_exe = end - start
+				#f.write("{} executed in {} seconds \n".format(key,runtime))
 
-		result = cursor.fetchall()
-		end_fetch = time.perf_counter()
-		runtime_fetchall = end_fetch - end
+				result = curs.fetchall()
+				end_fetch = time.perf_counter()
+				runtime_fetchall = end_fetch - end
+
+				curs.close()
+
 		return [result,runtime_exe, runtime_fetchall]
 	except OperationalError as e:
 		print(f"The error '{e}' occurred")
@@ -131,11 +170,14 @@ def get_queries(file):
 
 	return qdict
 
-def get_image(connection):
-	query = "SELECT ST_AsGDALRaster(fct_get_image(ST_GeomFromText('POINT(154938.251 6821208.497)'), 500, 'altifr_75m_0150_6825'), 'GTiff')"
+# exemple de point pour altifr_75m_0150_6825 : 154938.251 6821208.497
+def get_image(connection, table, coord_x, coord_y, resolution_x, resolution_y):
+	print(table)
+	query = "SELECT ST_AsGDALRaster(fct_get_image(ST_GeomFromText('POINT({} {})'), {}, {}, '{}'), 'GTiff')".format(coord_x, coord_y, resolution_x, resolution_y, table)
+	
 	results = execute_read_query(connection,query)
 	for row in results[0]:
-		print(row)
+	#	print(row)
 		rast = bytes(row[0])
 
 		with MemoryFile(rast) as memfile:
@@ -145,6 +187,9 @@ def get_image(connection):
 				#read(1) returns numpy array contenant les valeurs de raster pour la bande 1
 							
 				print(infos_raster(dataset,data_array))
+
+	return results[1]
+
 
 
 def start_queries(mode,connection,queries_dict):
@@ -168,7 +213,7 @@ def start_queries(mode,connection,queries_dict):
 		keys.reverse()
 		keys_list = keys
 		
-	f = open("results_{}.txt".format(mode), "w")
+	f = open("results_sans_union_{}.txt".format(mode), "w")
 	for key in keys_list:
 		print(key)
 		results = execute_read_query(connection,queries_dict[key])
@@ -179,40 +224,48 @@ def start_queries(mode,connection,queries_dict):
 		f.write("{} executed in {} seconds and fetched in {} seconds \n ratio : {} % \n".format(key,runtime_exe, runtime_fetchall,ratio))
 	f.close()
 
+def plot_perf(times,chart_name):
+	plt.ylabel('execution time (seconds)')
+	plt.xlabel('N')
+	plt.plot( range(len(times)), times, 'b')
+	#plt.axis([0, 6, 0, 20])
+	plt.savefig(chart_name)
+	#plt.show()
+	#print(max(times))
+
 
 def main():
 	#srid = get_raster_srid("altifr_p2")
 	#print(srid)
 
 	#START CONNECTION
-	connection = create_connection("postgis_test","postgres","admin","localhost","5432")
-	queries_dict = get_queries('queries.txt')
+	#connection = create_connection("postgis_test","postgres","admin","localhost","5432")
+
+	#GET QUERIES FROM FILE AND EXECUTE ALL
+	#queries_dict = get_queries('queries_not_union.txt')
+	#start_queries(3,connection,queries_dict)
+	#connection.close()
 	
+	#START CONNECTION POOL
+	pool = create_connection_pool(1,5,"postgis_test","postgres","admin","localhost","5432")
+
+	times = []
+	N = 40
+	#for i in range(N):
+	#	t = get_image(connection,'altifr_75m_0150_6825',154938.251,6821208.497, 500, 500)
+	#	times.append(t)
+
+	q1 = "SELECT ST_AsGDALRaster(ST_Union(altifr_75m_0150_6825.rast), 'GTiff') FROM altifr_75m_0150_6825"
 	
-	start_queries(3,connection,queries_dict)
-	
-	#get_image(connection)
+	for i in range(N):
+		results = query_with_pool(pool,q1)
+		times.append(results[1])
 
+	#threaded_postgreSQL_pool.closeall
+	pool.closeall
 
+	plot_perf(times,'chart_pool.png')
 
-	#values = test_prepared(connection)
-
-	#end = time.perf_counter()
-	#runtime = start - end
-
-#	print(f"Executed in {runtime:0.4f} seconds")
-
-	#for val in values:
-#	    print(val)
-
-
-
-	#start = time.perf_counter()
-	#raster_query()
-	#simple_query()
-	#print(f"Executed in {time.perf_counter() - start:0.4f} seconds")
-
-    
 
 
 if __name__== "__main__" :

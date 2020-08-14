@@ -1,0 +1,12 @@
+select_raster_0150_6825_o4 executed in 0.05005669999991369 seconds and fetched in 0.0007685000000492437 seconds 
+ ratio : 1.612109016381491 % 
+select_raster_0150_6825_o2 executed in 0.05361500000071828 seconds and fetched in 0.0031244999991031364 seconds 
+ ratio : 6.140110167888076 % 
+select_raster_0150_6825 executed in 0.18922569999995176 seconds and fetched in 0.012133100000937702 seconds 
+ ratio : 7.625282581482448 % 
+select_raster_altifr_p1 executed in 0.13506740000048012 seconds and fetched in 0.005398999999670195 seconds 
+ ratio : 4.537163588109683 % 
+select_point_value executed in 0.08557640000071842 seconds and fetched in 1.1699999959091656e-05 seconds 
+ ratio : 0.014841993628491784 % 
+select_intersection executed in 12.759435300000405 seconds and fetched in 9.100000170292333e-06 seconds 
+ ratio : 0.0009813197890750388 % 
