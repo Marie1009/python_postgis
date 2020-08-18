@@ -7,6 +7,8 @@ import time
 import random
 import csv
 import matplotlib.pyplot as plt
+import psycopg2.extensions
+import select
 
 from psycopg2 import OperationalError
 from psycopg2 import sql
@@ -192,7 +194,9 @@ def get_image(connection, table, coord_x, coord_y, resolution_x, resolution_y):
 
 
 
-def start_queries(mode,connection,queries_dict):
+def start_queries(mode,connection):
+	queries_dict = get_queries('queries_not_union.txt')
+
 	keys = list(queries_dict.keys())
 	print(keys)
 	keys_list = []
@@ -227,11 +231,103 @@ def start_queries(mode,connection,queries_dict):
 def plot_perf(times,chart_name):
 	plt.ylabel('execution time (seconds)')
 	plt.xlabel('N')
+	plt.title(chart_name)
 	plt.plot( range(len(times)), times, 'b')
 	#plt.axis([0, 6, 0, 20])
-	plt.savefig(chart_name)
+	plt.savefig("{}.png".format(chart_name))
 	#plt.show()
 	#print(max(times))
+	plt.close()
+
+def plot_fig(t1,t2,t3,chart_name):
+	plt.figure(1)
+
+	plt.subplots_adjust(hspace=0.7)
+
+	plt.subplot(311)
+	plt.ylabel('execution time (seconds)')
+	plt.xlabel('N')
+	plt.title('execution')
+	plt.plot( range(len(t1)), t1, 'b')
+
+	plt.subplot(312)
+	plt.ylabel('execution time (seconds)')
+	plt.xlabel('N')
+	plt.title('wait')
+	plt.plot( range(len(t2)), t2, 'b')
+
+	plt.subplot(313)
+	plt.ylabel('execution time (seconds)')
+	plt.xlabel('N')
+	plt.title('fetch')
+	plt.plot( range(len(t3)), t3, 'b')
+
+	plt.savefig("{}.png".format(chart_name))
+	plt.close()
+
+def exe_query_Ntimes_pool(query, N):
+	#START CONNECTION POOL
+	pool = create_connection_pool(1,5,"postgis_test","postgres","admin","localhost","5432")
+	times = []
+	#for i in range(N):
+	#	t = get_image(connection,'altifr_75m_0150_6825',154938.251,6821208.497, 500, 500)
+	#	times.append(t)
+	for i in range(N):
+		results = query_with_pool(pool,query)
+		times.append(results[1])
+	pool.closeall
+	plot_perf(times,'chart_pool')
+
+
+def wait(conn):
+    while True:
+        state = conn.poll()
+        if state == psycopg2.extensions.POLL_OK:
+            break
+        elif state == psycopg2.extensions.POLL_WRITE:
+            select.select([], [conn.fileno()], [])
+        elif state == psycopg2.extensions.POLL_READ:
+            select.select([conn.fileno()], [], [])
+        else:
+            raise psycopg2.OperationalError("poll() returned %s" % state)
+
+def exe_query_async_Ntimes(query, N):
+	aconn = psycopg2.connect(database="postgis_test", user="postgres", host="127.0.0.1", port="5432", password="admin", async=1)
+	wait(aconn)
+	acurs = aconn.cursor()		
+
+	times_exe = []
+	times_fetch = []
+	times_wait = []
+
+	for i in range(N):
+		print("Running query {} in async mode".format(i))
+		
+		start = time.perf_counter()
+		acurs.execute(query)
+		end = time.perf_counter()
+		wait(acurs.connection)
+		end_wait = time.perf_counter()
+		runtime_exe = end - start
+
+		runtime_wait = end_wait - end
+
+		result = acurs.fetchall()
+		end_fetch = time.perf_counter()
+		runtime_fetchall = end_fetch - end_wait
+
+
+		times_exe.append(runtime_exe)
+		times_fetch.append(runtime_fetchall)
+		times_wait.append(runtime_wait)
+
+	acurs.close()
+
+	plot_fig(times_exe,times_wait,times_fetch, 'async_perf')
+	#plot_perf(times_exe,'async_execution')
+	#plot_perf(times_fetch,'async_fetch')
+	#plot_perf(times_wait, 'async_wait')
+	
 
 
 def main():
@@ -242,30 +338,13 @@ def main():
 	#connection = create_connection("postgis_test","postgres","admin","localhost","5432")
 
 	#GET QUERIES FROM FILE AND EXECUTE ALL
-	#queries_dict = get_queries('queries_not_union.txt')
-	#start_queries(3,connection,queries_dict)
+	#start_queries(3,connection)
 	#connection.close()
 	
-	#START CONNECTION POOL
-	pool = create_connection_pool(1,5,"postgis_test","postgres","admin","localhost","5432")
-
-	times = []
-	N = 40
-	#for i in range(N):
-	#	t = get_image(connection,'altifr_75m_0150_6825',154938.251,6821208.497, 500, 500)
-	#	times.append(t)
-
-	q1 = "SELECT ST_AsGDALRaster(ST_Union(altifr_75m_0150_6825.rast), 'GTiff') FROM altifr_75m_0150_6825"
 	
-	for i in range(N):
-		results = query_with_pool(pool,q1)
-		times.append(results[1])
-
-	#threaded_postgreSQL_pool.closeall
-	pool.closeall
-
-	plot_perf(times,'chart_pool.png')
-
+	q1 = "SELECT ST_AsGDALRaster(ST_Union(altifr_75m_0150_6825.rast), 'GTiff') FROM altifr_75m_0150_6825"
+	#exe_query_Ntimes_pool(q1, 40)
+	exe_query_async_Ntimes(q1,30)
 
 
 if __name__== "__main__" :
