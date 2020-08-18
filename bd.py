@@ -37,7 +37,7 @@ def create_connection_pool(min_co, max_co, db_name, db_user, db_password, db_hos
 		                          password = db_password,
 		                          host = db_host,
 		                          port = db_port,
-		                          database = db_name)
+		                          database = db_name, async=1)
 		if(threaded_postgreSQL_pool):
 			print("Connection pool created successfully using ThreadedConnectionPool")
 
@@ -239,28 +239,44 @@ def plot_perf(times,chart_name):
 	#print(max(times))
 	plt.close()
 
-def plot_fig(t1,t2,t3,chart_name):
-	plt.figure(1)
+def plot_fig(t1,t2,t3,t4,chart_name):
+	#1 : exe
+	#2 : wait
+	#3 : fetch
+	#4 : total
+	plt.figure(1, figsize=(10,10))
 
 	plt.subplots_adjust(hspace=0.7)
 
-	plt.subplot(311)
-	plt.ylabel('execution time (seconds)')
+
+	plt.subplot(411)
+	plt.ylabel('execution time (s)')
+	plt.xlabel('N')
+	plt.title('total')
+	plt.plot( range(len(t1)), t1, 'b')
+	plt.plot( range(len(t2)), t2, 'b')
+	plt.plot( range(len(t3)), t3, 'b')
+	plt.plot( range(len(t4)), t4, 'r')
+
+	plt.subplot(412)
+	plt.ylabel('execution time (s')
 	plt.xlabel('N')
 	plt.title('execution')
 	plt.plot( range(len(t1)), t1, 'b')
 
-	plt.subplot(312)
-	plt.ylabel('execution time (seconds)')
+	plt.subplot(413)
+	plt.ylabel('execution time (s)')
 	plt.xlabel('N')
 	plt.title('wait')
 	plt.plot( range(len(t2)), t2, 'b')
 
-	plt.subplot(313)
-	plt.ylabel('execution time (seconds)')
+	plt.subplot(414)
+	plt.ylabel('execution time (s)')
 	plt.xlabel('N')
 	plt.title('fetch')
 	plt.plot( range(len(t3)), t3, 'b')
+
+
 
 	plt.savefig("{}.png".format(chart_name))
 	plt.close()
@@ -299,6 +315,7 @@ def exe_query_async_Ntimes(query, N):
 	times_exe = []
 	times_fetch = []
 	times_wait = []
+	times_total = []
 
 	for i in range(N):
 		print("Running query {} in async mode".format(i))
@@ -316,19 +333,62 @@ def exe_query_async_Ntimes(query, N):
 		end_fetch = time.perf_counter()
 		runtime_fetchall = end_fetch - end_wait
 
+		total = end_fetch-start
 
+		times_total.append(total)
 		times_exe.append(runtime_exe)
 		times_fetch.append(runtime_fetchall)
 		times_wait.append(runtime_wait)
 
 	acurs.close()
 
-	plot_fig(times_exe,times_wait,times_fetch, 'async_perf')
+	plot_fig(times_exe,times_wait,times_fetch,times_total, 'async_perf')
 	#plot_perf(times_exe,'async_execution')
 	#plot_perf(times_fetch,'async_fetch')
 	#plot_perf(times_wait, 'async_wait')
 	
+def query_async_pool_Ntimes(query,N):
+	pool = create_connection_pool(1,5,"postgis_test","postgres","admin","localhost","5432")
 
+
+	times_exe = []
+	times_fetch = []
+	times_wait = []
+	times_total = []
+
+	for i in range(N):
+		print("Running query {} in async mode".format(i))
+		aconn  = pool.getconn()
+		wait(aconn)
+		acurs = aconn.cursor()
+		
+		start = time.perf_counter()
+		acurs.execute(query)
+		end = time.perf_counter()
+		wait(acurs.connection)
+		end_wait = time.perf_counter()
+		runtime_exe = end - start
+
+		runtime_wait = end_wait - end
+
+		result = acurs.fetchall()
+		end_fetch = time.perf_counter()
+		runtime_fetchall = end_fetch - end_wait
+
+		total = end_fetch-start
+
+		times_total.append(total)
+
+		times_exe.append(runtime_exe)
+		times_fetch.append(runtime_fetchall)
+		times_wait.append(runtime_wait)
+	
+	#results = execute_read_query(ps_connection, query)
+		acurs.close()
+		pool.putconn(aconn)
+
+	plot_fig(times_exe,times_wait,times_fetch,times_total, 'async_pool_perf')
+	#Use this method to release the connection object and send back ti connection pool
 
 def main():
 	#srid = get_raster_srid("altifr_p2")
@@ -345,7 +405,7 @@ def main():
 	q1 = "SELECT ST_AsGDALRaster(ST_Union(altifr_75m_0150_6825.rast), 'GTiff') FROM altifr_75m_0150_6825"
 	#exe_query_Ntimes_pool(q1, 40)
 	exe_query_async_Ntimes(q1,30)
-
+	query_async_pool_Ntimes(q1,30)
 
 if __name__== "__main__" :
 	main()
