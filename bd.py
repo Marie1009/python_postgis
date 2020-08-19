@@ -31,18 +31,34 @@ def create_connection(db_name, db_user, db_password, db_host, db_port):
         print(f"The error '{e}' occurred")
     return connection
 
-def create_connection_pool(min_co, max_co, db_name, db_user, db_password, db_host, db_port):
-	try:
-		threaded_postgreSQL_pool = psycopg2.pool.ThreadedConnectionPool(min_co, max_co, user = db_user,
-		                          password = db_password,
-		                          host = db_host,
-		                          port = db_port,
-		                          database = db_name, async=1)
-		if(threaded_postgreSQL_pool):
-			print("Connection pool created successfully using ThreadedConnectionPool")
+def create_connection_pool(min_co, max_co, db_name, db_user, db_password, db_host, db_port,async):
 
-	except (Exception, psycopg2.DatabaseError) as error :
-		print ("Error while connecting to PostgreSQL", error)
+	if async==1:
+
+		try:
+			threaded_postgreSQL_pool = psycopg2.pool.ThreadedConnectionPool(min_co, max_co, user = db_user,
+			                          password = db_password,
+			                          host = db_host,
+			                          port = db_port,
+			                          database = db_name, async=1)
+			if(threaded_postgreSQL_pool):
+				print("ASYNC Connection pool created successfully using ThreadedConnectionPool")
+
+		except (Exception, psycopg2.DatabaseError) as error :
+			print ("Error while connecting to PostgreSQL", error)
+	else:
+		try:
+			threaded_postgreSQL_pool = psycopg2.pool.ThreadedConnectionPool(min_co, max_co, user = db_user,
+			                          password = db_password,
+			                          host = db_host,
+			                          port = db_port,
+			                          database = db_name)
+			if(threaded_postgreSQL_pool):
+				print("Connection pool created successfully using ThreadedConnectionPool")
+
+		except (Exception, psycopg2.DatabaseError) as error :
+			print ("Error while connecting to PostgreSQL", error)
+
 
 	return threaded_postgreSQL_pool
 
@@ -347,9 +363,8 @@ def exe_query_async_Ntimes(query, N):
 	#plot_perf(times_fetch,'async_fetch')
 	#plot_perf(times_wait, 'async_wait')
 	
-def query_async_pool_Ntimes(query,N):
-	pool = create_connection_pool(1,5,"postgis_test","postgres","admin","localhost","5432")
-
+def query_seq_async_pool_Ntimes(query,N):
+	pool = create_connection_pool(1,5,"postgis_test","postgres","admin","localhost","5432",1)
 
 	times_exe = []
 	times_fetch = []
@@ -390,6 +405,43 @@ def query_async_pool_Ntimes(query,N):
 	plot_fig(times_exe,times_wait,times_fetch,times_total, 'async_pool_perf')
 	#Use this method to release the connection object and send back ti connection pool
 
+
+def query_async_pool_Ntimes(query,N,nbpool):
+	pool = create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
+
+	times_exe = []
+	times_fetch = []
+	times_wait = []
+	times_total = []
+
+	
+	#print("Running query {} in async mode".format(i))
+	
+
+	for i in range(N):
+		aconn  = pool.getconn()
+		wait(aconn)
+		acurs = aconn.cursor()
+		acurs.execute(query)
+
+	for i in range(N):
+		wait(acurs.connection)
+
+		result = acurs.fetchall()
+		print("query done")
+		#acurs.close()
+	pool.putconn(aconn)
+				
+
+
+		
+	#results = execute_read_query(ps_connection, query)
+		
+
+	#plot_fig(times_exe,times_wait,times_fetch,times_total, 'async_pool_perf')
+	#Use this method to release the connection object and send back ti connection pool
+
+
 def main():
 	#srid = get_raster_srid("altifr_p2")
 	#print(srid)
@@ -404,8 +456,8 @@ def main():
 	
 	q1 = "SELECT ST_AsGDALRaster(ST_Union(altifr_75m_0150_6825.rast), 'GTiff') FROM altifr_75m_0150_6825"
 	#exe_query_Ntimes_pool(q1, 40)
-	exe_query_async_Ntimes(q1,30)
-	query_async_pool_Ntimes(q1,30)
+	#exe_query_async_Ntimes(q1,30)
+	query_async_pool_Ntimes(q1,30,30)
 
 if __name__== "__main__" :
 	main()
