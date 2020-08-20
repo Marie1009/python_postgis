@@ -81,18 +81,6 @@ def exe_query_async_Ntimes(query, N):
     #plot_perf(times_fetch,'async_fetch')
     #plot_perf(times_wait, 'async_wait')
     
-def test_pool():
-    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
-
-    aconn = pool.getconn()
-    wait(aconn)
-    psycopg2.extras.wait_select(aconn)
-    #print("wait aconn ok")
-    acurs = aconn.cursor()
-
-    start = time.perf_counter()
-    acurs.execute(query)
-
 
 def query_async_pool_Ntimes(query,N,nbpool):
    
@@ -106,48 +94,58 @@ def query_async_pool_Ntimes(query,N,nbpool):
 
     cursors = []
     connections = []
+    counter = 0
+    dispo = nbpool
 
-    print("Starting queries")
-    for i in range(N):
-        aconn  = pool.getconn()
-        connections.append(aconn)
+    while counter < N :
 
-        if (aconn):
-            print("get conn ok")
-            #time.sleep(3)
-            wait(aconn)
-            #psycopg2.extras.wait_select(aconn)
-            #print("wait aconn ok")
-            acurs = aconn.cursor()
+        print("Starting queries")
+        while dispo != 0:
+            aconn  = pool.getconn()
+            dispo = dispo -1
+            counter +=1
+            connections.append(aconn)
 
-            start = time.perf_counter()
-            acurs.execute(query)
-            end = time.perf_counter()
-            runtime_exe = end - start
-            times_exe.append(runtime_exe)
+            if (aconn):
+                print("get conn ok")
+                #time.sleep(3)
+                wait(aconn)
+                #psycopg2.extras.wait_select(aconn)
+                #print("wait aconn ok")
+                acurs = aconn.cursor()
 
-            cursors.append(acurs)
-            #pool.putconn(aconn)
+                start = time.perf_counter()
+                acurs.execute(query)
+                end = time.perf_counter()
+                runtime_exe = end - start
+                times_exe.append(runtime_exe)
 
-    print("Gettting results")
-    for cur in cursors:
-        swait = time.perf_counter()
-        wait(cur.connection)
-        ewait = time.perf_counter()
-        runtime_wait = ewait - swait
-        times_wait.append(runtime_wait)
+                cursors.append(acurs)
+                #pool.putconn(aconn)
 
-        result = cur.fetchall()
-        qu.test_raster_results(result)
-        end_fetch = time.perf_counter()
-        runtime_fetchall = end_fetch - ewait
-        times_fetch.append(runtime_fetchall)
-        total = end_fetch - start
-        times_total.append(total)
+        print("Gettting results")
+        for cur in cursors:
+            swait = time.perf_counter()
+            wait(cur.connection)
+            ewait = time.perf_counter()
+            runtime_wait = ewait - swait
+            times_wait.append(runtime_wait)
 
-        print("query done")
-        #acurs.close()
-        pool.putconn(connections[cursors.index(cur)])
+            result = cur.fetchall()
+            qu.test_raster_results(result)
+            end_fetch = time.perf_counter()
+            runtime_fetchall = end_fetch - ewait
+            times_fetch.append(runtime_fetchall)
+            total = end_fetch - start
+            times_total.append(total)
+
+            print("query done")
+            #acurs.close()
+            pool.putconn(connections[cursors.index(cur)])
+            dispo +=1
+
+        cursors = []
+        connections = []
                         
     #results = execute_read_query(ps_connection, query)
     #bd.plot_perf(times_exe,'execution')
