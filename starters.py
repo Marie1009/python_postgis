@@ -81,12 +81,23 @@ def exe_query_async_Ntimes(query, N):
     #plot_perf(times_fetch,'async_fetch')
     #plot_perf(times_wait, 'async_wait')
     
+def test_pool():
+    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
+
+    aconn = pool.getconn()
+    wait(aconn)
+    psycopg2.extras.wait_select(aconn)
+    #print("wait aconn ok")
+    acurs = aconn.cursor()
+
+    start = time.perf_counter()
+    acurs.execute(query)
 
 
 def query_async_pool_Ntimes(query,N,nbpool):
    
     pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
-    time.sleep(3)
+    #time.sleep(3)
     times_exe = []
     times_fetch = []
     times_wait = []
@@ -96,6 +107,7 @@ def query_async_pool_Ntimes(query,N,nbpool):
     cursors = []
     connections = []
 
+    print("Starting queries")
     for i in range(N):
         aconn  = pool.getconn()
         connections.append(aconn)
@@ -104,7 +116,7 @@ def query_async_pool_Ntimes(query,N,nbpool):
             print("get conn ok")
             #time.sleep(3)
             wait(aconn)
-            psycopg2.extras.wait_select(aconn)
+            #psycopg2.extras.wait_select(aconn)
             #print("wait aconn ok")
             acurs = aconn.cursor()
 
@@ -117,6 +129,7 @@ def query_async_pool_Ntimes(query,N,nbpool):
             cursors.append(acurs)
             #pool.putconn(aconn)
 
+    print("Gettting results")
     for cur in cursors:
         swait = time.perf_counter()
         wait(cur.connection)
@@ -125,6 +138,7 @@ def query_async_pool_Ntimes(query,N,nbpool):
         times_wait.append(runtime_wait)
 
         result = cur.fetchall()
+        qu.test_raster_results(result)
         end_fetch = time.perf_counter()
         runtime_fetchall = end_fetch - ewait
         times_fetch.append(runtime_fetchall)
@@ -133,7 +147,7 @@ def query_async_pool_Ntimes(query,N,nbpool):
 
         print("query done")
         #acurs.close()
-        pool.putconn(aconn)
+        pool.putconn(connections[cursors.index(cur)])
                         
     #results = execute_read_query(ps_connection, query)
     #bd.plot_perf(times_exe,'execution')

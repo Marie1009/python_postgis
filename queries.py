@@ -8,6 +8,7 @@ import time
 import bd
 import connections
 import starters
+from rasterio.io import MemoryFile
 
 def query_with_pool(pool, query):
 
@@ -143,3 +144,17 @@ def get_image(connection, table, coord_x, coord_y, resolution_x, resolution_y):
                 print(infos_raster(dataset,data_array))
 
     return results[1]
+
+
+def test_raster_results(results):
+    for row in results:
+    #   print(row)
+        rast = bytes(row[0])
+
+        with MemoryFile(rast) as memfile:
+            with memfile.open() as dataset:
+
+                data_array = dataset.read(1)
+                #read(1) returns numpy array contenant les valeurs de raster pour la bande 1
+                            
+                print(infos_raster(dataset,data_array))
