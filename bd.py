@@ -103,7 +103,9 @@ def main():
 	q1 = "SELECT ST_AsGDALRaster(ST_Union(altifr_75m_0150_6825.rast), 'GTiff') FROM altifr_75m_0150_6825"
 	#starters.exe_query_Ntimes_pool(q1, 5)
 	#starters.exe_query_async_Ntimes(q1,5)
-	starters.query_async_pool_Ntimes(q1,10,10)
+	#starters.query_async_pool_Ntimes(q1,30,5)
+	#starters.start_multithreading(N,nbthreads,nbpool,query)
+	starters.start_multithreading(10,3,5,q1)
 
 if __name__== "__main__" :
 	main()

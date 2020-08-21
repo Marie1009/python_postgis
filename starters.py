@@ -5,6 +5,8 @@ from psycopg2 import OperationalError
 from psycopg2 import sql
 from psycopg2 import pool
 #from psycopg2 import wait_select
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import concurrent.futures
 import queries as qu
 import connections as co
 import bd
@@ -23,9 +25,6 @@ def exe_query_Ntimes_pool(query, N):
         times.append(results[1])
     pool.closeall
     bd.plot_perf(times,'chart_pool')
-
-
-
 
 def wait(conn):
     while True:
@@ -99,7 +98,7 @@ def query_async_pool_Ntimes(query,N,nbpool):
 
     while counter < N :
 
-        print("Starting queries")
+        print("Starting connections and queries")
         while dispo != 0:
             aconn  = pool.getconn()
             dispo = dispo -1
@@ -136,6 +135,7 @@ def query_async_pool_Ntimes(query,N,nbpool):
             end_fetch = time.perf_counter()
             runtime_fetchall = end_fetch - ewait
             times_fetch.append(runtime_fetchall)
+
             total = end_fetch - start
             times_total.append(total)
 
@@ -153,6 +153,83 @@ def query_async_pool_Ntimes(query,N,nbpool):
     #bd.plot_perf(times_fetch,'fetch')
     bd.plot_fig(times_exe,times_wait,times_fetch,times_total, 'test_async_pool_perf')
     #Use this method to release the connection object and send back ti connection pool
+
+
+
+def task_getconn(conn_pool):
+    aconn  = conn_pool.getconn()
+    wait(aconn)
+    print("get conn ok")
+    return aconn
+
+def task_test():
+    return 10
+
+def task_execute(aconn):
+    #psycopg2.extras.wait_select(aconn)
+    #print("wait aconn ok")
+    q1 = "SELECT ST_AsGDALRaster(ST_Union(altifr_75m_0150_6825.rast), 'GTiff') FROM altifr_75m_0150_6825"
+    acurs = aconn.cursor()
+    acurs.execute(q1)
+    print("execute query ok")
+    return acurs
+
+def task_wait_fetch(curs):
+    wait(curs.connection)
+    result = curs.fetchall()
+    qu.test_raster_results(result)
+    print("query done")
+    
+
+def start_multithreading(N,nbthreads,nbpool,query):
+#https://www.tutorialspoint.com/concurrency_in_python/concurrency_in_python_pool_of_threads.htm
+    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
+
+    connection_manager = ThreadPoolExecutor(max_workers=nbpool)
+    query_executor = ThreadPoolExecutor(max_workers=nbthreads)
+    query_fetcher = ThreadPoolExecutor(max_workers=nbthreads)
+
+    count = 0
+    results = []
+
+    connections = []
+    cursors = []
+    dispo = nbpool 
+
+    while count < N:
+ 
+        with ThreadPoolExecutor(max_workers = 3) as executor:
+            futures = []
+            while len(connections) < N and dispo != 0:
+                futures.append(executor.submit(task_getconn,pool))
+                dispo = dispo -1
+
+            for f in as_completed(futures):
+                connections.append(f.result())
+
+
+        with ThreadPoolExecutor(max_workers = 3) as executor:
+            #executor.submit(task_execute, (connections,query)).result
+            #cursors.append(executor.map(task_execute, (connections,query)).result)
+            cursors_list = executor.map(task_execute, connections)
+
+            for cur in cursors_list:
+                cursors.append(cur)
+
+            print(len(cursors))
+         
+
+        with ThreadPoolExecutor(max_workers = 3) as executor:
+            results = executor.map(task_wait_fetch, cursors)
+            print("fetch")
+            for curs in cursors:
+                pool.putconn(connections[cursors.index(curs)])
+            count += 1
+
+
+        
+
+
 
 
 def get_queries(file):
