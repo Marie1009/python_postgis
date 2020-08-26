@@ -5,7 +5,7 @@ from psycopg2 import OperationalError
 from psycopg2 import sql
 from psycopg2 import pool
 #from psycopg2 import wait_select
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 import concurrent.futures
 import queries as qu
 import connections as co
@@ -26,11 +26,11 @@ def exe_query_Ntimes_pool(query, N):
     pool.closeall
     bd.plot_perf(times,'chart_pool')
 
-def wait(conn):
+def my_wait(conn):
     while True:
         state = conn.poll()
         if state == psycopg2.extensions.POLL_OK:
-            print("wait : poll ok")
+            print("my_wait : poll ok")
             break
         elif state == psycopg2.extensions.POLL_WRITE:
             select.select([], [conn.fileno()], [])
@@ -41,7 +41,7 @@ def wait(conn):
 
 def exe_query_async_Ntimes(query, N):
     aconn = psycopg2.connect(database="postgis_test", user="postgres", host="127.0.0.1", port="5432", password="admin", async=1)
-    wait(aconn)
+    my_wait(aconn)
 
     acurs = aconn.cursor()      
 
@@ -56,7 +56,7 @@ def exe_query_async_Ntimes(query, N):
         start = time.perf_counter()
         acurs.execute(query)
         end = time.perf_counter()
-        wait(acurs.connection)
+        my_wait(acurs.connection)
         end_wait = time.perf_counter()
         runtime_exe = end - start
 
@@ -108,7 +108,7 @@ def query_async_pool_Ntimes(query,N,nbpool):
             if (aconn):
                 print("get conn ok")
                 #time.sleep(3)
-                wait(aconn)
+                my_wait(aconn)
                 #psycopg2.extras.wait_select(aconn)
                 #print("wait aconn ok")
                 acurs = aconn.cursor()
@@ -125,7 +125,7 @@ def query_async_pool_Ntimes(query,N,nbpool):
         print("Gettting results")
         for cur in cursors:
             swait = time.perf_counter()
-            wait(cur.connection)
+            my_wait(cur.connection)
             ewait = time.perf_counter()
             runtime_wait = ewait - swait
             times_wait.append(runtime_wait)
@@ -158,7 +158,7 @@ def query_async_pool_Ntimes(query,N,nbpool):
 
 def task_getconn(conn_pool):
     aconn  = conn_pool.getconn()
-    wait(aconn)
+    my_wait(aconn)
     print("get conn ok")
     return aconn
 
@@ -175,7 +175,7 @@ def task_execute(aconn):
     return acurs
 
 def task_wait_fetch(curs):
-    wait(curs.connection)
+    my_wait(curs.connection)
     result = curs.fetchall()
     qu.test_raster_results(result)
     print("query done")
@@ -184,10 +184,6 @@ def task_wait_fetch(curs):
 def start_multithreading(N,nbthreads,nbpool,query):
 #https://www.tutorialspoint.com/concurrency_in_python/concurrency_in_python_pool_of_threads.htm
     pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
-
-    connection_manager = ThreadPoolExecutor(max_workers=nbpool)
-    query_executor = ThreadPoolExecutor(max_workers=nbthreads)
-    query_fetcher = ThreadPoolExecutor(max_workers=nbthreads)
 
     count = 0
     results = []
@@ -198,7 +194,7 @@ def start_multithreading(N,nbthreads,nbpool,query):
 
     while count < N:
  
-        with ThreadPoolExecutor(max_workers = 3) as executor:
+        with ThreadPoolExecutor(max_workers = nbpool) as executor:
             futures = []
             while len(connections) < N and dispo != 0:
                 futures.append(executor.submit(task_getconn,pool))
@@ -228,6 +224,52 @@ def start_multithreading(N,nbthreads,nbpool,query):
 
 
         
+def start_multith_tasks(N,nbthreads,nbpool,query):
+#https://www.tutorialspoint.com/concurrency_in_python/concurrency_in_python_pool_of_threads.htm
+    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
+
+    count = 0
+    results = []
+
+    connections = []
+    cursors = []
+    dispo = nbpool 
+
+    while count < N:
+        futures =[]
+        future_exe =  []
+        future_final = []
+        with ThreadPoolExecutor(max_workers= nbthreads) as executor:
+            futures.append(executor.submit(task_getconn,pool))
+            #time.sleep( 0.0001 )
+            done_and_not_done_jobs = wait(futures, return_when='FIRST_COMPLETED')
+            done_job_results = done_and_not_done_jobs.done
+            
+            for future in done_job_results:
+                aconn = future.result()
+                connections.append(aconn)
+
+            future_exe.append(executor.submit(task_execute, aconn))
+            #time.sleep(0.0001)
+            done_and_not_done_jobs = wait(future_exe, return_when='FIRST_COMPLETED')
+            done_job_results = done_and_not_done_jobs.done
+            for future in done_job_results:
+                acurs = future.result()
+                cursors.append(acurs)
+           
+
+            future_final.append(executor.submit(task_wait_fetch, acurs))
+            time.sleep( 0.1 )
+            done_and_not_done_jobs = wait(future_final, return_when='FIRST_COMPLETED')
+            #done_job_results = done_and_not_done_jobs.done
+
+            pool.putconn(aconn)
+
+            count +=1
+
+ 
+       
+
 
 
 
