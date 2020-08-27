@@ -28,7 +28,7 @@ def create_connection_pool(min_co, max_co, db_name, db_user, db_password, db_hos
                                   password = db_password,
                                   host = db_host,
                                   port = db_port,
-                                  database = db_name, async=async_param)
+                                  database = db_name, async_=async_param)
         if(threaded_postgreSQL_pool):
             print("ASYNC Connection pool created successfully using ThreadedConnectionPool")
 

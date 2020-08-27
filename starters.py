@@ -41,7 +41,7 @@ def my_wait(conn):
             raise psycopg2.OperationalError("poll() returned %s" % state)
 
 def exe_query_async_Ntimes(query, N):
-    aconn = psycopg2.connect(database="postgis_test", user="postgres", host="127.0.0.1", port="5432", password="admin", async=1)
+    aconn = psycopg2.connect(database="postgis_test", user="postgres", host="127.0.0.1", port="5432", password="admin", async_=1)
     my_wait(aconn)
 
     acurs = aconn.cursor()      
