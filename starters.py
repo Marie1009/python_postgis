@@ -196,7 +196,6 @@ def task_wait_fetch(curs):
    
     qu.test_raster_results(result)
     print("query done")
-
     return runtime_wait, runtime_fetchall
     
 
@@ -312,6 +311,63 @@ def start_multith_tasks(N,nbthreads,nbpool,query):
 
     bd.plot_fig(times_exe,times_wait,times_fetch,times_total, 'multithreading_perf')
 
+
+def exe_wait_fetch(pool,query,times_exe,times_wait,times_fetch,times_total):
+    start_time = time.perf_counter()
+     
+    aconn = task_getconn(pool)
+    
+    res_exe = task_execute(aconn, query)
+
+    acurs = res_exe[0]
+    times_exe.append(res_exe[1])
+
+    times = task_wait_fetch(acurs)
+    times_wait.append(times[0])
+    times_fetch.append(times[1])
+
+    pool.putconn(aconn)
+    
+
+    end_time = time.perf_counter()
+
+    total = end_time - start_time 
+    times_total.append(total)
+    
+
+
+def start_multith_tasks_callback(N,nbthreads,nbpool,query):
+#https://www.tutorialspoint.com/concurrency_in_python/concurrency_in_python_pool_of_threads.htm
+    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
+
+    count = 0
+    results = []
+
+    connections = []
+    cursors = []
+    dispo = nbpool 
+
+    times_exe = []
+    times_wait = []
+    times_fetch = []
+    times_total = []
+
+    start = time.perf_counter()
+
+    #while count < N:
+    futures = []
+
+    with ThreadPoolExecutor(max_workers= nbthreads) as executor:
+        while count < N:
+            futures.append(executor.submit(exe_wait_fetch, pool, query,times_exe,times_wait,times_fetch,times_total))
+            count +=1
+
+    end = time.perf_counter()
+    total_prog = end - start 
+    print("total time for N = {} executions : {} s".format(N,total_prog))
+    print("mean execution time : {} s".format(np.mean(times_total)))
+
+    bd.plot_fig(times_exe,times_wait,times_fetch,times_total, 'callback_threads_test')
 
 
 def get_queries(file):

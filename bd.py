@@ -2,14 +2,11 @@ import psycopg2
 import rasterio
 import unittest
 import numpy as np
-import timeit
 import time
-import random
 import csv
 import matplotlib.pyplot as plt
 import psycopg2.extensions
 import select
-import pyclbr
 import psycopg2.extras
 
 
@@ -21,8 +18,6 @@ from psycopg2 import OperationalError
 from psycopg2 import sql
 from psycopg2 import pool
 from rasterio.io import MemoryFile
-
-
 
 
 
@@ -107,6 +102,9 @@ def main():
 	#starters.start_multithreading(N,nbthreads,nbpool,query)
 	
 	#starters.start_multithreading(10,3,5,q1)
-	starters.start_multith_tasks(10,3,5,q1)
+	#starters.start_multith_tasks(20,5,5,q1)
+	starters.start_multith_tasks_callback(5,100,5,q1)
+	#liste =queries.query_overview_table(8,'altifr_p2')
+	#print(liste)
 if __name__== "__main__" :
 	main()
