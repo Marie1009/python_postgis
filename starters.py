@@ -1,6 +1,7 @@
 import psycopg2
 import psycopg2.extensions
 import psycopg2.extras
+import numpy as np
 from psycopg2 import OperationalError
 from psycopg2 import sql
 from psycopg2 import pool
@@ -165,20 +166,38 @@ def task_getconn(conn_pool):
 def task_test():
     return 10
 
-def task_execute(aconn):
+def task_execute(aconn,query):
     #psycopg2.extras.wait_select(aconn)
     #print("wait aconn ok")
     q1 = "SELECT ST_AsGDALRaster(ST_Union(altifr_75m_0150_6825.rast), 'GTiff') FROM altifr_75m_0150_6825"
     acurs = aconn.cursor()
-    acurs.execute(q1)
+
+    start = time.perf_counter()
+    acurs.execute(query)
+    end = time.perf_counter()
+    runtime_exe = end - start
+       
     print("execute query ok")
-    return acurs
+    return acurs, runtime_exe
 
 def task_wait_fetch(curs):
+    swait = time.perf_counter()
     my_wait(curs.connection)
+    ewait = time.perf_counter()
+
+    runtime_wait = ewait - swait
+
     result = curs.fetchall()
+    
+    end_fetch = time.perf_counter()
+    qu.test_raster_results(result)
+    runtime_fetchall = end_fetch - ewait
+   
+   
     qu.test_raster_results(result)
     print("query done")
+
+    return runtime_wait, runtime_fetchall
     
 
 def start_multithreading(N,nbthreads,nbpool,query):
@@ -222,7 +241,6 @@ def start_multithreading(N,nbthreads,nbpool,query):
                 pool.putconn(connections[cursors.index(curs)])
             count += 1
 
-
         
 def start_multith_tasks(N,nbthreads,nbpool,query):
 #https://www.tutorialspoint.com/concurrency_in_python/concurrency_in_python_pool_of_threads.htm
@@ -235,11 +253,21 @@ def start_multith_tasks(N,nbthreads,nbpool,query):
     cursors = []
     dispo = nbpool 
 
+    times_exe = []
+    times_wait = []
+    times_fetch = []
+    times_total = []
+
+    start = time.perf_counter()
+
     while count < N:
         futures =[]
         future_exe =  []
         future_final = []
+
         with ThreadPoolExecutor(max_workers= nbthreads) as executor:
+            start_time = time.perf_counter()
+
             futures.append(executor.submit(task_getconn,pool))
             #time.sleep( 0.0001 )
             done_and_not_done_jobs = wait(futures, return_when='FIRST_COMPLETED')
@@ -249,28 +277,40 @@ def start_multith_tasks(N,nbthreads,nbpool,query):
                 aconn = future.result()
                 connections.append(aconn)
 
-            future_exe.append(executor.submit(task_execute, aconn))
+            future_exe.append(executor.submit(task_execute, aconn, query))
             #time.sleep(0.0001)
             done_and_not_done_jobs = wait(future_exe, return_when='FIRST_COMPLETED')
             done_job_results = done_and_not_done_jobs.done
             for future in done_job_results:
-                acurs = future.result()
+                acurs = future.result()[0]
+                runtime_exe = future.result()[1]
+                times_exe.append(runtime_exe)
                 cursors.append(acurs)
            
-
             future_final.append(executor.submit(task_wait_fetch, acurs))
-            time.sleep( 0.1 )
+            time.sleep( 0.0001 )
             done_and_not_done_jobs = wait(future_final, return_when='FIRST_COMPLETED')
-            #done_job_results = done_and_not_done_jobs.done
+            done_job_results = done_and_not_done_jobs.done
 
             pool.putconn(aconn)
-
+            for future in done_job_results:
+                runtime_wait = future.result()[0]
+                times_wait.append(runtime_wait)
+                runtime_fetchall = future.result()[1]
+                times_fetch.append(runtime_fetchall)
             count +=1
 
+            end_time = time.perf_counter()
+            total = end_time - start_time 
+            times_total.append(total)
+
  
-       
+    end = time.perf_counter()
+    total_prog = end - start 
+    print("total time for N = {} executions : {} s".format(N,total_prog))
+    print("mean execution time : {} s".format(np.mean(times_total)))
 
-
+    bd.plot_fig(times_exe,times_wait,times_fetch,times_total, 'multithreading_perf')
 
 
 
