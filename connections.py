@@ -20,33 +20,19 @@ def create_connection(db_name, db_user, db_password, db_host, db_port):
         print(f"The error '{e}' occurred")
     return connection
 
-def create_connection_pool(min_co, max_co, db_name, db_user, db_password, db_host, db_port,async):
+def create_connection_pool(min_co, max_co, db_name, db_user, db_password, db_host, db_port,async_param):
 
-    if async==1:
 
-        try:
-            threaded_postgreSQL_pool = psycopg2.pool.ThreadedConnectionPool(min_co, max_co, user = db_user,
-                                      password = db_password,
-                                      host = db_host,
-                                      port = db_port,
-                                      database = db_name, async=1)
-            if(threaded_postgreSQL_pool):
-                print("ASYNC Connection pool created successfully using ThreadedConnectionPool")
+    try:
+        threaded_postgreSQL_pool = psycopg2.pool.ThreadedConnectionPool(min_co, max_co, user = db_user,
+                                  password = db_password,
+                                  host = db_host,
+                                  port = db_port,
+                                  database = db_name, async=async_param)
+        if(threaded_postgreSQL_pool):
+            print("ASYNC Connection pool created successfully using ThreadedConnectionPool")
 
-        except (Exception, psycopg2.DatabaseError) as error :
-            print ("Error while connecting to PostgreSQL", error)
-    else:
-        try:
-            threaded_postgreSQL_pool = psycopg2.pool.ThreadedConnectionPool(min_co, max_co, user = db_user,
-                                      password = db_password,
-                                      host = db_host,
-                                      port = db_port,
-                                      database = db_name)
-            if(threaded_postgreSQL_pool):
-                print("Connection pool created successfully using ThreadedConnectionPool")
-
-        except (Exception, psycopg2.DatabaseError) as error :
-            print ("Error while connecting to PostgreSQL", error)
-
+    except (Exception, psycopg2.DatabaseError) as error :
+        print ("Error while connecting to PostgreSQL", error)
 
     return threaded_postgreSQL_pool
