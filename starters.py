@@ -193,8 +193,6 @@ def task_wait_fetch(curs):
     qu.test_raster_results(result)
     runtime_fetchall = end_fetch - ewait
    
-   
-    qu.test_raster_results(result)
     print("query done")
     return runtime_wait, runtime_fetchall
     
@@ -313,10 +311,11 @@ def start_multith_tasks(N,nbthreads,nbpool,query):
 
 
 def exe_wait_fetch(pool,query,times_exe,times_wait,times_fetch,times_total):
+    print("exe wait fetch")
     start_time = time.perf_counter()
      
     aconn = task_getconn(pool)
-    
+    time.sleep(1)
     res_exe = task_execute(aconn, query)
 
     acurs = res_exe[0]
@@ -358,9 +357,9 @@ def start_multith_tasks_callback(N,nbthreads,nbpool,query):
     futures = []
 
     with ThreadPoolExecutor(max_workers= nbthreads) as executor:
-        while count < N:
+        for i in range(N):
             futures.append(executor.submit(exe_wait_fetch, pool, query,times_exe,times_wait,times_fetch,times_total))
-            count +=1
+            #count +=1
 
     end = time.perf_counter()
     total_prog = end - start 
