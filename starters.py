@@ -242,7 +242,6 @@ def start_multithreading(N,nbthreads,nbpool,query):
                 pool.putconn(connections[cursors.index(curs)])
             count += 1
 
-        
 def start_multith_tasks(N,nbthreads,nbpool,query):
 #https://www.tutorialspoint.com/concurrency_in_python/concurrency_in_python_pool_of_threads.htm
     pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
@@ -260,10 +259,19 @@ def start_multith_tasks(N,nbthreads,nbpool,query):
     times_total = []
 
     start = time.perf_counter()
-
+#    class ThreadSafePool:
+#        def __init__(self, pool):
+#            self.pool = pool
+#            self.mutex = threading.Lock()
+#        def getconn(self):
+#            self.mutex.acquire()
+#            connection = self.pool.getconn()
+#            self.mutex.release()
+#            return connection
     class QueryExecution:
-        def __init__(self, query):
+        def __init__(self, query, pool):
             self.query = query
+            self.pool = pool
 
             self.create_time = 0
             self.query_time_start = 0
@@ -274,11 +282,10 @@ def start_multith_tasks(N,nbthreads,nbpool,query):
             self.fetch_time_start = 0
             self.fetch_time_end = 0
 
-        def submitQuery(self, pool):
-            print("submitQuery start")
+        def submitQuery(self):
             self.query_time_start = time.perf_counter()
-            connection = task_getconn(pool)
-            self.query_cursor = connection.cursor()
+            self.connection = task_getconn(pool)
+            self.query_cursor = self.connection.cursor()
             self.query_time_submit = time.perf_counter()
             self.query_cursor.execute(self.query)
             self.query_time_end = time.perf_counter()
@@ -292,28 +299,44 @@ def start_multith_tasks(N,nbthreads,nbpool,query):
             self.fetch_time_start = time.perf_counter()
             self.result = self.query_cursor.fetchall()
             self.fetch_time_end = time.perf_counter()
+            self.query_cursor.close()
+            self.pool.putconn(self.connection)
 
     class TasksList:
         def __init__(self):
             self.tasks = []
+            self.execQueries = []
             self.tasksMutex = threading.Lock()
 
         def initQueries(self, numQueries, query, pool):
-            self.execQueries = [QueryExecution(query)] * numQueries
+            for i in range(numQueries):
+                self.execQueries.append(QueryExecution(query, pool))
             self.tasks = deque()
+            def fetchLambda(tasksList, execQuery):
+                execQuery.fetchQueryResult()
+            def waitLambda(tasksList, execQuery):
+                execQuery.waitForQueryResult()
+                tasksList.addTask(lambda: fetchLambda(tasksList, execQuery))
+            def submitLambda(tasksList, execQuery):
+                execQuery.submitQuery()
+                tasksList.addTask(lambda: waitLambda(tasksList, execQuery))
             for execQuery in self.execQueries:
-                submitLambda = lambda execQuery: execQuery.submitQuery(pool)
-                self.tasks.append((submitLambda, execQuery))
+                self.tasks.append(lambda execQuery=execQuery: submitLambda(self, execQuery))
+
+        def addTask(self, task):
+            self.tasksMutex.acquire()
+            self.tasks.append(task)
+            self.tasksMutex.release()
 
         def executeNext(self):
             self.tasksMutex.acquire()
             try:
                 nextTask = self.tasks.popleft()
             except:
-                self.tasksMutex.release()
                 return False
-            self.tasksMutex.release()
-            nextTask[0](nextTask[1])
+            finally:
+                self.tasksMutex.release()
+            nextTask()
             return True
 
         def execute_next_task(self):
@@ -340,6 +363,13 @@ def start_multith_tasks(N,nbthreads,nbpool,query):
 
     end = time.perf_counter()
     total_prog = end - start 
+
+    for future in futures:
+        hasThrown = future.exception()
+        if hasThrown:
+            raise hasThrown
+        print(future.result)
+
     print("total time for N = {} executions : {} s".format(N,total_prog))
 #    print("mean execution time : {} s".format(np.mean(times_total)))
 
