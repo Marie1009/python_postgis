@@ -282,9 +282,11 @@ def start_multith_tasks(N,nbthreads,nbpool,query):
             self.fetch_time_start = 0
             self.fetch_time_end = 0
 
-        def submitQuery(self):
+        def submitQueryConnection(self):
             self.query_time_start = time.perf_counter()
-            self.connection = task_getconn(pool)
+            self.connection = pool.getconn()
+
+        def submitQueryCreateCursor(self):
             self.query_cursor = self.connection.cursor()
             self.query_time_submit = time.perf_counter()
             self.query_cursor.execute(self.query)
@@ -308,20 +310,43 @@ def start_multith_tasks(N,nbthreads,nbpool,query):
             self.execQueries = []
             self.tasksMutex = threading.Lock()
 
+        # execute in order: submitQueryConnection, [wait], submitQueryCreateCursor, [wait], fetchQueryResult
         def initQueries(self, numQueries, query, pool):
             for i in range(numQueries):
                 self.execQueries.append(QueryExecution(query, pool))
             self.tasks = deque()
             def fetchLambda(tasksList, execQuery):
                 execQuery.fetchQueryResult()
-            def waitLambda(tasksList, execQuery):
-                execQuery.waitForQueryResult()
-                tasksList.addTask(lambda: fetchLambda(tasksList, execQuery))
-            def submitLambda(tasksList, execQuery):
-                execQuery.submitQuery()
-                tasksList.addTask(lambda: waitLambda(tasksList, execQuery))
+            def waitQueryLambda(tasksList, execQuery):
+                state = execQuery.query_cursor.connection.poll()
+                if state == psycopg2.extensions.POLL_OK:
+                    # wait is finished, go to next stage: fetchQueryResult
+                    self.tasks.append(lambda: fetchLambda(tasksList, execQuery))
+                elif state == psycopg2.extensions.POLL_WRITE or state == psycopg2.extensions.POLL_READ:
+                    # wait is not finished, resubmit this same task at end of queue
+                    self.tasks.append(lambda: waitQueryLambda(tasksList, execQuery))
+                else:
+                    raise psycopg2.OperationalError("poll() returned %s" % state)
+            def submitQueryCreateCursorLambda(tasksList, execQuery):
+                execQuery.submitQueryCreateCursor()
+                tasksList.addTask(lambda: waitQueryLambda(tasksList, execQuery))
+            def waitConnectionLambda(tasksList, execQuery):
+                state = execQuery.connection.poll()
+                if state == psycopg2.extensions.POLL_OK:
+                    # wait is finished, go to next stage: submitQueryCreateCursorLambda
+                    self.tasks.append(lambda: submitQueryCreateCursorLambda(tasksList, execQuery))
+                elif state == psycopg2.extensions.POLL_WRITE or state == psycopg2.extensions.POLL_READ:
+                    # wait is not finished, resubmit this same task at end of queue
+                    self.tasks.append(lambda: waitConnectionLambda(tasksList, execQuery))
+                else:
+                    raise psycopg2.OperationalError("poll() returned %s" % state)
+            def submitQueryConnectionLambda(tasksList, execQuery):
+                execQuery.submitQueryConnection()
+                my_wait(execQuery.connection)
+                submitQueryCreateCursorLambda(tasksList, execQuery)
+#                tasksList.addTask(lambda: waitConnectionLambda(tasksList, execQuery))
             for execQuery in self.execQueries:
-                self.tasks.append(lambda execQuery=execQuery: submitLambda(self, execQuery))
+                self.tasks.append(lambda execQuery=execQuery: submitQueryConnectionLambda(self, execQuery))
 
         def addTask(self, task):
             self.tasksMutex.acquire()
