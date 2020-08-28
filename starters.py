@@ -33,7 +33,7 @@ def my_wait(conn):
     while True:
         state = conn.poll()
         if state == psycopg2.extensions.POLL_OK:
-            print("my_wait : poll ok")
+#            print("my_wait : poll ok")
             break
         elif state == psycopg2.extensions.POLL_WRITE:
             select.select([], [conn.fileno()], [])
@@ -162,7 +162,7 @@ def query_async_pool_Ntimes(query,N,nbpool):
 def task_getconn(conn_pool):
     aconn  = conn_pool.getconn()
     my_wait(aconn)
-    print("get conn ok")
+#    print("get conn ok")
     return aconn
 
 def task_test():
@@ -351,7 +351,7 @@ def start_multith_tasks(N,nbthreads,nbpool,query):
 
     def workOnTask(tasksList):
         while tasksList.executeNext():
-            print("go on")
+            pass
 
     futures = []
 
@@ -369,6 +369,8 @@ def start_multith_tasks(N,nbthreads,nbpool,query):
         if hasThrown:
             raise hasThrown
         print(future.result)
+    for execQuery in allTasks.execQueries:
+        print (execQuery.result)
 
     print("total time for N = {} executions : {} s".format(N,total_prog))
 #    print("mean execution time : {} s".format(np.mean(times_total)))

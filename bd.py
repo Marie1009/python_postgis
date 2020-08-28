@@ -107,6 +107,6 @@ def main():
 	#starters.start_multithreading(N,nbthreads,nbpool,query)
 	
 	#starters.start_multithreading(10,3,5,q1)
-	starters.start_multith_tasks(10,3,5,q1)
+	starters.start_multith_tasks(50,4,50,q1)
 if __name__== "__main__" :
 	main()
