@@ -12,6 +12,8 @@ import queries as qu
 import connections as co
 import bd
 import select
+import csv
+
 import time
 
 def exe_query_Ntimes_pool(query, N):
@@ -188,9 +190,11 @@ def task_wait_fetch(curs):
     runtime_wait = ewait - swait
 
     result = curs.fetchall()
-    
     end_fetch = time.perf_counter()
-    qu.test_raster_results(result)
+    #if type(result[0][0]) == 'memoryview':
+     #   qu.test_raster_results(result)
+    #else :
+     #   print(result)
     runtime_fetchall = end_fetch - ewait
    
     print("query done")
@@ -310,13 +314,16 @@ def start_multith_tasks(N,nbthreads,nbpool,query):
     bd.plot_fig(times_exe,times_wait,times_fetch,times_total, 'multithreading_perf')
 
 
-def exe_wait_fetch(pool,query,times_exe,times_wait,times_fetch,times_total):
+def exe_wait_fetch(pool,query,times_exe,times_wait,times_fetch,times_total,qdict,perf):
     print("exe wait fetch")
+    print("query :")
+    print(query)
+
     start_time = time.perf_counter()
      
     aconn = task_getconn(pool)
-    time.sleep(1)
-    res_exe = task_execute(aconn, query)
+    #time.sleep(1)
+    res_exe = task_execute(aconn, qdict[query])
 
     acurs = res_exe[0]
     times_exe.append(res_exe[1])
@@ -327,15 +334,16 @@ def exe_wait_fetch(pool,query,times_exe,times_wait,times_fetch,times_total):
 
     pool.putconn(aconn)
     
-
     end_time = time.perf_counter()
 
     total = end_time - start_time 
-    times_total.append(total)
-    
+    times_total.append(total)   
+
+    perf.append("query : {} execution : {}s , wait : {}s, fetch : {}s, total : {}s \n".format(query,res_exe[1],times[0],times[1],total))
 
 
-def start_multith_tasks_callback(N,nbthreads,nbpool,query):
+
+def start_multith_tasks_callback(N,nbthreads,nbpool,file):
 #https://www.tutorialspoint.com/concurrency_in_python/concurrency_in_python_pool_of_threads.htm
     pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
 
@@ -351,23 +359,39 @@ def start_multith_tasks_callback(N,nbthreads,nbpool,query):
     times_fetch = []
     times_total = []
 
+    dict_queries = get_queries(file)
+    queries = list(dict_queries.keys())
+    print(queries)
+
     start = time.perf_counter()
 
     #while count < N:
     futures = []
+    perf = []
 
     with ThreadPoolExecutor(max_workers= nbthreads) as executor:
-        for i in range(N):
-            futures.append(executor.submit(exe_wait_fetch, pool, query,times_exe,times_wait,times_fetch,times_total))
+        for i in range(len(queries)):
+            futures.append(executor.submit(exe_wait_fetch, pool, queries.pop(),times_exe,times_wait,times_fetch,times_total, dict_queries,perf))
             #count +=1
+
+    wait(futures, return_when='ALL_COMPLETED')
 
     end = time.perf_counter()
     total_prog = end - start 
     print("total time for N = {} executions : {} s".format(N,total_prog))
     print("mean execution time : {} s".format(np.mean(times_total)))
+    print(times_total)
+
+    f = open("results_multithreading.txt", "w")
+    for l in perf :
+        print(l)
+        f.write(l)
+
+    f.close()
+
+
 
     bd.plot_fig(times_exe,times_wait,times_fetch,times_total, 'callback_threads_test')
-
 
 def get_queries(file):
     with open(file) as csv_file:
@@ -380,10 +404,21 @@ def get_queries(file):
 
     return qdict
 
+def get_queries_list(file):
+    with open(file) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter='#')
+        #qdict = {}
+        liste = []
+        #line_count = 0
+        for line in csv_reader:
+            #qdict[line[0]] = line[1]
+            liste.append(line[1])
+
+    return liste
 
 
 def start_queries(mode,connection):
-    queries_dict = qu.get_queries('queries_not_union.txt')
+    queries_dict = get_queries('queries_not_union.txt')
 
     keys = list(queries_dict.keys())
     print(keys)

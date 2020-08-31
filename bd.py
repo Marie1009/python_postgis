@@ -3,7 +3,6 @@ import rasterio
 import unittest
 import numpy as np
 import time
-import csv
 import matplotlib.pyplot as plt
 import psycopg2.extensions
 import select
@@ -81,10 +80,10 @@ def main():
 	#print(srid)
 
 	#START CONNECTION
-	#connection = create_connection("postgis_test","postgres","admin","localhost","5432")
+	#connection = connections.create_connection("postgis_test","postgres","admin","localhost","5432")
 
 	#GET QUERIES FROM FILE AND EXECUTE ALL
-	#start_queries(3,connection)
+	#starters.start_queries(3,connection)
 	#connection.close()
 	
 
@@ -103,7 +102,7 @@ def main():
 	
 	#starters.start_multithreading(10,3,5,q1)
 	#starters.start_multith_tasks(20,5,5,q1)
-	starters.start_multith_tasks_callback(5,100,5,q1)
+	starters.start_multith_tasks_callback(5,100,10,'queries.txt')
 	#liste =queries.query_overview_table(8,'altifr_p2')
 	#print(liste)
 if __name__== "__main__" :
