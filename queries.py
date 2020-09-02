@@ -155,8 +155,8 @@ def table_overviews_list(max_o,table):
     powers = [i for i in range(2, max_o+1) if (math.log(i)/math.log(2)).is_integer()]
     for p in powers:
         table_names.append("o_{}_{}".format(p,table))
-
-    return table_names
+#on renvoie la liste reverse pour qu'elle commence par les overviews les - detaillees
+    return table_names.reverse()
 
 
 def test_raster_results(results):
