@@ -4,6 +4,8 @@ import unittest
 import numpy as np
 import time
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+
 import psycopg2.extensions
 import select
 import psycopg2.extras
@@ -74,27 +76,59 @@ def plot_fig(t1,t2,t3,t4,chart_name):
 	plt.savefig("{}.png".format(chart_name))
 	plt.close()
 
+def plot_points(points_conn, point_exe, point_wait,chart_name):
+    #plt.ylabel('execution time (seconds)')
+    plt.xlabel('s')
+    plt.title(chart_name)
+    #plt.plot( points_conn,range(len(points_conn)), 'b+')
+    #plt.plot( point_exe,range(len(point_exe)), 'g1')
+    #plt.plot( point_wait,range(len(point_wait)), 'rx')
+    plt.plot( points_conn, 'b+')
+    plt.plot( point_exe, 'g1')
+    plt.plot( point_wait,'rx')
+    #plt.axis([0, 6, 0, 20])
+    plt.savefig("{}.png".format(chart_name))
+    #plt.show()
+    #print(max(times))
+    plt.close()
+
+
+
+def plot_start_end(starts, ends, chart_name):
+	#plt.ylabel('execution time (seconds)')
+	plt.figure(1, figsize=(4,2.5))
+	plt.xlabel('time (s)')
+	plt.ylabel('query')
+
+	plt.title(chart_name)
+
+	print(starts)
+	print(ends)
+	sizes = []
+	for i in range(len(starts)):
+		sizes.append(ends[i]-starts[i]) 
+
+	for i in range(len(starts)-1):
+		starts[i+1] = starts[i+1]- starts[0]
+	starts[0]=0
+
+	plt.barh(range(len(starts)),sizes,height=0.5,left=starts)
+	#plt.plot( starts, range(len(starts)),'g.')
+	#plt.plot( ends,range(len(ends)), 'r.')
+
+	plt.savefig("{}.png".format(chart_name),bbox_inches = "tight")
+	
+	plt.close()
+
+
+
+
 
 def main():
-	#srid = get_raster_srid("altifr_p2")
-	#print(srid)
-
-	#START CONNECTION
-	#connection = connections.create_connection("postgis_test","postgres","admin","localhost","5432")
-
-	#GET QUERIES FROM FILE AND EXECUTE ALL
-	#starters.start_queries(3,connection)
-	#connection.close()
 	
-
-	#module_name = 'psycopg2.extras'
-	#module_info = pyclbr.readmodule(module_name)
-	#print(module_info)
-
-	#for item in module_info.values():
-	#	print(item.name)
 	
 	q1 = "SELECT ST_AsGDALRaster(ST_Union(altifr_75m_0150_6825.rast), 'GTiff') FROM altifr_75m_0150_6825"
+	starters.start_queries(0,'queries.txt','sync execution')
 	#starters.exe_query_Ntimes_pool(q1, 5)
 	#starters.exe_query_async_Ntimes(q1,5)
 	#starters.query_async_pool_Ntimes(q1,30,5)
@@ -102,8 +136,13 @@ def main():
 	
 	#starters.start_multithreading(10,3,5,q1)
 	#starters.start_multith_tasks(20,5,5,q1)
-	starters.start_multith_tasks_callback(5,100,10,'queries.txt')
+	#starters.start_multith_tasks_callback(50,4,50,q1)
+	#starters.start_multith_tasks(50,4,50,q1)
 	#liste =queries.query_overview_table(8,'altifr_p2')
+
+	starters.start_multith_file(10,10,'queries.txt','async execution')
+	
+
 	#print(liste)
 if __name__== "__main__" :
 	main()

@@ -13,7 +13,8 @@ import connections as co
 import bd
 import select
 import csv
-
+import threading
+from collections import deque
 import time
 
 def exe_query_Ntimes_pool(query, N):
@@ -83,7 +84,6 @@ def exe_query_async_Ntimes(query, N):
     #plot_perf(times_fetch,'async_fetch')
     #plot_perf(times_wait, 'async_wait')
     
-
 def query_async_pool_Ntimes(query,N,nbpool):
    
     pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
@@ -157,8 +157,6 @@ def query_async_pool_Ntimes(query,N,nbpool):
     bd.plot_fig(times_exe,times_wait,times_fetch,times_total, 'test_async_pool_perf')
     #Use this method to release the connection object and send back ti connection pool
 
-
-
 def task_getconn(conn_pool):
     aconn  = conn_pool.getconn()
     my_wait(aconn)
@@ -200,121 +198,7 @@ def task_wait_fetch(curs):
     print("query done")
     return runtime_wait, runtime_fetchall
     
-
-def start_multithreading(N,nbthreads,nbpool,query):
-#https://www.tutorialspoint.com/concurrency_in_python/concurrency_in_python_pool_of_threads.htm
-    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
-
-    count = 0
-    results = []
-
-    connections = []
-    cursors = []
-    dispo = nbpool 
-
-    while count < N:
- 
-        with ThreadPoolExecutor(max_workers = nbpool) as executor:
-            futures = []
-            while len(connections) < N and dispo != 0:
-                futures.append(executor.submit(task_getconn,pool))
-                dispo = dispo -1
-
-            for f in as_completed(futures):
-                connections.append(f.result())
-
-
-        with ThreadPoolExecutor(max_workers = 3) as executor:
-            #executor.submit(task_execute, (connections,query)).result
-            #cursors.append(executor.map(task_execute, (connections,query)).result)
-            cursors_list = executor.map(task_execute, connections)
-
-            for cur in cursors_list:
-                cursors.append(cur)
-
-            print(len(cursors))
-         
-
-        with ThreadPoolExecutor(max_workers = 3) as executor:
-            results = executor.map(task_wait_fetch, cursors)
-            print("fetch")
-            for curs in cursors:
-                pool.putconn(connections[cursors.index(curs)])
-            count += 1
-
-        
-def start_multith_tasks(N,nbthreads,nbpool,query):
-#https://www.tutorialspoint.com/concurrency_in_python/concurrency_in_python_pool_of_threads.htm
-    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
-
-    count = 0
-    results = []
-
-    connections = []
-    cursors = []
-    dispo = nbpool 
-
-    times_exe = []
-    times_wait = []
-    times_fetch = []
-    times_total = []
-
-    start = time.perf_counter()
-
-    while count < N:
-        futures =[]
-        future_exe =  []
-        future_final = []
-
-        with ThreadPoolExecutor(max_workers= nbthreads) as executor:
-            start_time = time.perf_counter()
-
-            futures.append(executor.submit(task_getconn,pool))
-            #time.sleep( 0.0001 )
-            done_and_not_done_jobs = wait(futures, return_when='FIRST_COMPLETED')
-            done_job_results = done_and_not_done_jobs.done
-            
-            for future in done_job_results:
-                aconn = future.result()
-                connections.append(aconn)
-
-            future_exe.append(executor.submit(task_execute, aconn, query))
-            #time.sleep(0.0001)
-            done_and_not_done_jobs = wait(future_exe, return_when='FIRST_COMPLETED')
-            done_job_results = done_and_not_done_jobs.done
-            for future in done_job_results:
-                acurs = future.result()[0]
-                runtime_exe = future.result()[1]
-                times_exe.append(runtime_exe)
-                cursors.append(acurs)
-           
-            future_final.append(executor.submit(task_wait_fetch, acurs))
-            time.sleep( 0.0001 )
-            done_and_not_done_jobs = wait(future_final, return_when='FIRST_COMPLETED')
-            done_job_results = done_and_not_done_jobs.done
-
-            pool.putconn(aconn)
-            for future in done_job_results:
-                runtime_wait = future.result()[0]
-                times_wait.append(runtime_wait)
-                runtime_fetchall = future.result()[1]
-                times_fetch.append(runtime_fetchall)
-            count +=1
-
-            end_time = time.perf_counter()
-            total = end_time - start_time 
-            times_total.append(total)
-
- 
-    end = time.perf_counter()
-    total_prog = end - start 
-    print("total time for N = {} executions : {} s".format(N,total_prog))
-    print("mean execution time : {} s".format(np.mean(times_total)))
-
-    bd.plot_fig(times_exe,times_wait,times_fetch,times_total, 'multithreading_perf')
-
-
-def exe_wait_fetch(pool,query,times_exe,times_wait,times_fetch,times_total,qdict,perf):
+def exe_wait_fetch(pool,query,times_exe,times_wait,times_fetch,times_total):
     print("exe wait fetch")
     print("query :")
     print(query)
@@ -323,7 +207,7 @@ def exe_wait_fetch(pool,query,times_exe,times_wait,times_fetch,times_total,qdict
      
     aconn = task_getconn(pool)
     #time.sleep(1)
-    res_exe = task_execute(aconn, qdict[query])
+    res_exe = task_execute(aconn,query)
 
     acurs = res_exe[0]
     times_exe.append(res_exe[1])
@@ -339,11 +223,35 @@ def exe_wait_fetch(pool,query,times_exe,times_wait,times_fetch,times_total,qdict
     total = end_time - start_time 
     times_total.append(total)   
 
+def exe_wait_fetch_dict(pool,query,times_exe,times_wait,times_fetch,times_total,qdict,perf,starts,ends):
+    print("exe wait fetch")
+    print("query :")
+    print(query)
+
+    start_time = time.perf_counter()
+    starts.append(start_time)
+    aconn = task_getconn(pool)
+    #time.sleep(1)
+    res_exe = task_execute(aconn, qdict[query])
+
+    acurs = res_exe[0]
+    times_exe.append(res_exe[1])
+
+    times = task_wait_fetch(acurs)
+    times_wait.append(times[0])
+    times_fetch.append(times[1])
+
+    pool.putconn(aconn)
+    
+    end_time = time.perf_counter()
+    ends.append(end_time)
+    total = end_time - start_time 
+    times_total.append(total)   
+
     perf.append("query : {} execution : {}s , wait : {}s, fetch : {}s, total : {}s \n".format(query,res_exe[1],times[0],times[1],total))
 
 
-
-def start_multith_tasks_callback(N,nbthreads,nbpool,file):
+def start_multith(N,nbthreads,nbpool,query):
 #https://www.tutorialspoint.com/concurrency_in_python/concurrency_in_python_pool_of_threads.htm
     pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
 
@@ -359,6 +267,35 @@ def start_multith_tasks_callback(N,nbthreads,nbpool,file):
     times_fetch = []
     times_total = []
 
+    start = time.perf_counter()
+
+    #while count < N:
+    futures = []
+
+    with ThreadPoolExecutor(max_workers= nbthreads) as executor:
+        for i in range(N):
+            futures.append(executor.submit(exe_wait_fetch, pool, query,times_exe,times_wait,times_fetch,times_total))
+            #count +=1
+
+    end = time.perf_counter()
+    total_prog = end - start 
+    print("total time for N = {} executions : {} s".format(N,total_prog))
+    print("mean total time : {} s".format(np.mean(times_total)))
+
+    bd.plot_fig(times_exe,times_wait,times_fetch,times_total, 'callback_threads_test')
+
+def start_multith_file(nbthreads,nbpool,file,chartname):
+#https://www.tutorialspoint.com/concurrency_in_python/concurrency_in_python_pool_of_threads.htm
+    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
+
+
+    times_exe = []
+    times_wait = []
+    times_fetch = []
+    times_total = []
+    starts = []
+    ends = []
+
     dict_queries = get_queries(file)
     queries = list(dict_queries.keys())
     print(queries)
@@ -371,7 +308,7 @@ def start_multith_tasks_callback(N,nbthreads,nbpool,file):
 
     with ThreadPoolExecutor(max_workers= nbthreads) as executor:
         for i in range(len(queries)):
-            futures.append(executor.submit(exe_wait_fetch, pool, queries.pop(),times_exe,times_wait,times_fetch,times_total, dict_queries,perf))
+            futures.append(executor.submit(exe_wait_fetch_dict, pool, queries.pop(),times_exe,times_wait,times_fetch,times_total, dict_queries,perf,starts,ends))
             #count +=1
 
     wait(futures, return_when='ALL_COMPLETED')
@@ -389,9 +326,10 @@ def start_multith_tasks_callback(N,nbthreads,nbpool,file):
 
     f.close()
 
+    bd.plot_start_end(starts,ends,chartname)
+   # bd.plot_start_end(starts,ends,'asynchronous_execution')
 
-
-    bd.plot_fig(times_exe,times_wait,times_fetch,times_total, 'callback_threads_test')
+    #bd.plot_fig(times_exe,times_wait,times_fetch,times_total, 'callback_threads_test')
 
 def get_queries(file):
     with open(file) as csv_file:
@@ -404,21 +342,8 @@ def get_queries(file):
 
     return qdict
 
-def get_queries_list(file):
-    with open(file) as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter='#')
-        #qdict = {}
-        liste = []
-        #line_count = 0
-        for line in csv_reader:
-            #qdict[line[0]] = line[1]
-            liste.append(line[1])
-
-    return liste
-
-
-def start_queries(mode,connection):
-    queries_dict = get_queries('queries_not_union.txt')
+def start_sync_file_queries(mode,file,chartname):
+    queries_dict = get_queries(file)
 
     keys = list(queries_dict.keys())
     print(keys)
@@ -439,14 +364,25 @@ def start_queries(mode,connection):
     elif mode == 3:
         keys.reverse()
         keys_list = keys
+
+    starts = []
+    ends = []
+
+    #START CONNECTION
+    connection = co.create_connection("postgis_test","postgres","admin","localhost","5432")
         
-    f = open("results_sans_union_{}.txt".format(mode), "w")
+    f = open("results_seq_{}.txt".format(mode), "w")
     for key in keys_list:
         print(key)
+        starts.append(time.perf_counter())
         results = qu.execute_read_query(connection,queries_dict[key])
+        ends.append(time.perf_counter())
         values = results[0]
         runtime_exe = results[1]
         runtime_fetchall = results[2]
         ratio = (runtime_fetchall / runtime_exe + runtime_fetchall)*100 
         f.write("{} executed in {} seconds and fetched in {} seconds \n ratio : {} % \n".format(key,runtime_exe, runtime_fetchall,ratio))
     f.close()
+
+    bd.plot_start_end(starts,ends,chartname)
+    #bd.plot_start_end(starts,ends,'synchronous_execution')
