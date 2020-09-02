@@ -147,16 +147,16 @@ def get_image(connection, table, coord_x, coord_y, resolution_x, resolution_y):
 
     return results[1]
 
-def select_queries_table_overviews(max_o, table):
-    queries = []
-    queries.append("SELECT ST_AsGDALRaster({}.rast, 'GTiff') FROM {}".format(table,table))
 
+
+def table_overviews_list(max_o,table):
+    table_names = []
+    table_names.append(table)
     powers = [i for i in range(2, max_o+1) if (math.log(i)/math.log(2)).is_integer()]
     for p in powers:
-        queries.append("SELECT ST_AsGDALRaster(o_{}_{}.rast, 'GTiff') FROM o_{}_{}".format(p,table,p,table))
+        table_names.append("o_{}_{}".format(p,table))
 
-    return queries
-
+    return table_names
 
 
 def test_raster_results(results):
