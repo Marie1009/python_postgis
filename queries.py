@@ -150,13 +150,15 @@ def get_image(connection, table, coord_x, coord_y, resolution_x, resolution_y):
 
 
 def table_overviews_list(max_o,table):
-    table_names = []
-    table_names.append(table)
+    table_names = {}
+    table_names[0] = table
+
     powers = [i for i in range(2, max_o+1) if (math.log(i)/math.log(2)).is_integer()]
     for p in powers:
-        table_names.append("o_{}_{}".format(p,table))
+        table_names[p]= "o_{}_{}".format(p,table)
+        
 #on renvoie la liste reverse pour qu'elle commence par les overviews les - detaillees
-    return table_names.reverse()
+    return table_names
 
 
 def test_raster_results(results):

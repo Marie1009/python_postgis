@@ -386,3 +386,19 @@ def start_sync_file_queries(mode,file,chartname):
 
     bd.plot_start_end(starts,ends,chartname)
     #bd.plot_start_end(starts,ends,'synchronous_execution')
+
+def query_table_overviews(max_o, table):
+    names = qu.table_overviews_list(max_o,table)
+
+    connection = co.create_connection("postgis_test","postgres","admin","localhost","5432")
+
+    f = open("results_overview_queries.txt", "w")
+    for name in names.keys():
+        val = names[name]
+        query = "SELECT ST_AsGDALRaster({}.rast, 'GTiff') FROM {}".format(val,val)
+        print("running query")
+        results = qu.execute_read_query(connection, query)
+        values = results[0]
+        runtime_exe = results[1]
+        runtime_fetchall = results[2]
+        f.write("query executed in {} seconds and fetched in {} seconds with overview {}\n".format(runtime_exe, runtime_fetchall,name))
