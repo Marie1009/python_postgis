@@ -300,8 +300,6 @@ def start_multith_file(nbthreads,nbpool,file,chartname):
     queries = list(dict_queries.keys())
     print(queries)
 
-    start = time.perf_counter()
-
     #while count < N:
     futures = []
     perf = []
@@ -313,15 +311,10 @@ def start_multith_file(nbthreads,nbpool,file,chartname):
 
     wait(futures, return_when='ALL_COMPLETED')
 
-    end = time.perf_counter()
-    total_prog = end - start 
-    print("total time for N = {} executions : {} s".format(N,total_prog))
-    print("mean execution time : {} s".format(np.mean(times_total)))
-    print(times_total)
-
+    
     f = open("results_multithreading.txt", "w")
     for l in perf :
-        print(l)
+        #print(l)
         f.write(l)
 
     f.close()

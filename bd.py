@@ -100,8 +100,7 @@ def plot_start_end(starts, ends, chart_name):
 
 	plt.title(chart_name)
 
-	print(starts)
-	print(ends)
+	
 	sizes = []
 	for i in range(len(starts)):
 		sizes.append(ends[i]-starts[i]) 
@@ -127,23 +126,18 @@ def main():
 	
 	#q1 = "SELECT ST_AsGDALRaster(ST_Union(altifr_75m_0150_6825.rast), 'GTiff') FROM altifr_75m_0150_6825"
 	
-	#starters.start_queries(0,'queries.txt','sync execution')
+	starters.start_sync_file_queries(0,'queries.txt','sync_execution')
 
 	#starters.exe_query_Ntimes_pool(q1, 5)
 	#starters.exe_query_async_Ntimes(q1,5)
 	#starters.query_async_pool_Ntimes(q1,30,5)
-	#starters.start_multithreading(N,nbthreads,nbpool,query)
 	
-	#starters.start_multithreading(10,3,5,q1)
-	#starters.start_multith_tasks(20,5,5,q1)
-	#starters.start_multith_tasks_callback(50,4,50,q1)
-	#starters.start_multith_tasks(50,4,50,q1)
-	#liste =queries.query_overview_table(8,'altifr_p2')
-
-	#starters.start_multith_file(10,10,'queries.txt','async execution')
+	#starters.start_multith(50,4,50,q1)
+	
+	starters.start_multith_file(10,10,'queries.txt','async_execution')
 	
 	
-	starters.query_table_overviews(4, 'altifr_75m_0150_6825')
+	#starters.query_table_overviews(4, 'altifr_75m_0150_6825')
 
 	#print(liste)
 if __name__== "__main__" :
