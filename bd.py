@@ -125,18 +125,19 @@ def plot_start_end(starts, ends, chart_name):
 
 def main():
 	
-	
 	q1 = "SELECT ST_AsGDALRaster(ST_Union(o_16_altifr_75m_0150_6825.rast), 'GTiff') FROM o_16_altifr_75m_0150_6825"
 	q2 = "SELECT ST_AsGDALRaster(o_16_demtable.rast, 'GTiff') FROM o_16_demtable"
 
 	#starters.exe_query_Ntimes_pool(q1, 5)
 	#starters.exe_query_async_Ntimes(q1,5)
 	#starters.query_async_pool_Ntimes(q1,30,5)
-	starters.start_sync_file_queries(0,'queries.txt','sync_execution')
+	#starters.start_sync_file_queries(0,'queries.txt','sync_execution')
 	
-	conn = connections.create_connection("postgis_test","postgres","admin","localhost","5432")
-	queries.execute_read_query(conn,q1)
-	starters.start_multith_file(10,10,'queries.txt','async_execution')
+	#conn = connections.create_connection("postgis_test","postgres","admin","localhost","5432")
+	#queries.execute_read_query(conn,q1)
+	#starters.start_multith_file(10,10,'queries.txt','async_execution')
+	starters.query_table_overviews(16,'altifr_75m_0150_6825',0)
+	starters.query_table_overviews(16,'altifr_75m_0150_6825',1)
 	
 
 if __name__== "__main__" :
