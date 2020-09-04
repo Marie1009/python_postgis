@@ -100,7 +100,7 @@ def plot_start_end(starts, ends, chart_name):
 
 	plt.title(chart_name)
 
-	
+	total = max(ends) - min(starts) 	
 	sizes = []
 	for i in range(len(starts)):
 		sizes.append(ends[i]-starts[i]) 
@@ -112,8 +112,8 @@ def plot_start_end(starts, ends, chart_name):
 	plt.barh(range(len(starts)),sizes,height=0.5,left=starts)
 	#plt.plot( starts, range(len(starts)),'g.')
 	#plt.plot( ends,range(len(ends)), 'r.')
-	end = sizes[len(sizes)-1]-starts[len(starts)-1]
-	print("ending at {}".format(end))
+
+	print("total {} s".format(total))
 
 	plt.savefig("{}.png".format(chart_name),bbox_inches = "tight")
 	
