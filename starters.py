@@ -519,18 +519,42 @@ def start_sync_file_queries(mode,file,chartname):
     bd.plot_start_end(starts,ends,chartname)
     #bd.plot_start_end(starts,ends,'synchronous_execution')
     
-def query_table_overviews(max_o, table):
-    names = qu.table_overviews_list(max_o,table)
+def query_table_overviews(max_o, table, async):
+    
+    
+    if async == 0:
+        
+        names_dict = qu.table_overviews_dict(max_o,table)
+        connection = co.create_connection("postgis_test","postgres","admin","localhost","5432")
 
-    connection = co.create_connection("postgis_test","postgres","admin","localhost","5432")
+        f = open("results_overview_queries.txt", "w")
+        keys_list =list(names_dict.keys())
+        keys_list.reverse()
+        print(keys_list)
 
-    f = open("results_overview_queries.txt", "w")
-    for name in names.keys():
-        val = names[name]
-        query = "SELECT ST_AsGDALRaster({}.rast, 'GTiff') FROM {}".format(val,val)
-        print("running query")
-        results = qu.execute_read_query(connection, query)
-        values = results[0]
-        runtime_exe = results[1]
-        runtime_fetchall = results[2]
-        f.write("query executed in {} seconds and fetched in {} seconds with overview {}\n".format(runtime_exe, runtime_fetchall,name))
+        starts = []
+        ends = []
+        for name in keys_list:
+            val = names_dict[name]
+            query = "SELECT ST_AsGDALRaster(ST_Union({}.rast), 'GTiff') FROM {}".format(val,val)
+            print("running query {}".format(name))
+            starts.append(time.perf_counter())
+            results = qu.execute_read_query(connection, query)
+            ends.append(time.perf_counter())
+            values = results[0]
+            runtime_exe = results[1]
+            runtime_fetchall = results[2]
+            f.write("query executed in {} seconds and fetched in {} seconds with overview {}\n".format(runtime_exe, runtime_fetchall,name))
+        bd.plot_start_end(starts,ends,'sync_overviews')
+        
+   
+    elif async == 1:
+        names_list = qu.table_overviews_list(max_o,table)
+        print(names_list)
+        qlist = []
+        for name in names_list:
+            #val = names[name]
+            query = "SELECT ST_AsGDALRaster(ST_Union({}.rast), 'GTiff') FROM {}".format(name,name)
+            qlist.append(query)
+
+        start_multith_tasks(10,10,qlist)
