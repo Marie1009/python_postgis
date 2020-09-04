@@ -138,10 +138,6 @@ def main():
 	queries.execute_read_query(conn,q1)
 	starters.start_multith_file(10,10,'queries.txt','async_execution')
 	
-	
-	#starters.start_multith(50,4,50,q1)
-	#starters.query_table_overviews(4, 'altifr_75m_0150_6825')
 
-	#print(liste)
 if __name__== "__main__" :
 	main()

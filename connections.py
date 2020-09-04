@@ -20,15 +20,14 @@ def create_connection(db_name, db_user, db_password, db_host, db_port):
         print(f"The error '{e}' occurred")
     return connection
 
-def create_connection_pool(min_co, max_co, db_name, db_user, db_password, db_host, db_port,async_param):
-
-
+def create_connection_pool(min_co, max_co, db_name, db_user, db_password, db_host, db_port,async_param=0):
+    threaded_postgreSQL_pool = None
     try:
         threaded_postgreSQL_pool = psycopg2.pool.ThreadedConnectionPool(min_co, max_co, user = db_user,
                                   password = db_password,
                                   host = db_host,
                                   port = db_port,
-                                  database = db_name, async=async_param)
+                                  database = db_name, async_=async_param)
         if(threaded_postgreSQL_pool):
             print("ASYNC Connection pool created successfully using ThreadedConnectionPool")
 
