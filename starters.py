@@ -200,12 +200,13 @@ def task_wait_fetch(curs):
 
 
 
-def start_multith_tasks(N,nbthreads,nbpool,query):
+def start_multith_tasks(nbthreads,nbpool,queries):
 #https://www.tutorialspoint.com/concurrency_in_python/concurrency_in_python_pool_of_threads.htm
     pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
 
     count = 0
     results = []
+    N = len(queries)
 
     connections = []
     cursors = []
@@ -266,9 +267,9 @@ def start_multith_tasks(N,nbthreads,nbpool,query):
             self.execQueries = []
             self.tasksMutex = threading.Lock()
 
-        def initQueries(self, numQueries, query, pool):
-            for i in range(numQueries):
-                self.execQueries.append(QueryExecution(query, pool))
+        def initQueries(self, queries, pool):
+            for i in range(len(queries)):
+                self.execQueries.append(QueryExecution(queries.pop(), pool))
             self.tasks = deque()
             def fetchLambda(tasksList, execQuery):
                 execQuery.fetchQueryResult()
@@ -303,7 +304,7 @@ def start_multith_tasks(N,nbthreads,nbpool,query):
 
 
     allTasks = TasksList()
-    allTasks.initQueries(N, query, pool)
+    allTasks.initQueries(queries, pool)
 #    for task, param in allTasks.tasks:
 #        task(param)
 
