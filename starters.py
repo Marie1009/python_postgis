@@ -204,19 +204,10 @@ def start_multith_tasks(nbthreads,nbpool,queries):
 #https://www.tutorialspoint.com/concurrency_in_python/concurrency_in_python_pool_of_threads.htm
     pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
 
-    count = 0
-    results = []
+
     N = len(queries)
 
-    connections = []
-    cursors = []
-    dispo = nbpool 
-
-    times_exe = []
-    times_wait = []
-    times_fetch = []
-    times_total = []
-
+  
     start = time.perf_counter()
 #    class ThreadSafePool:
 #        def __init__(self, pool):
@@ -323,6 +314,10 @@ def start_multith_tasks(nbthreads,nbpool,queries):
     end = time.perf_counter()
     total_prog = end - start 
 
+    starts = []
+    ends = []
+
+
     for future in futures:
         hasThrown = future.exception()
         if hasThrown:
@@ -330,6 +325,10 @@ def start_multith_tasks(nbthreads,nbpool,queries):
         print(future.result)
     for execQuery in allTasks.execQueries:
         print (execQuery.result)
+        starts.append(execQuery.query_time_start)
+        ends.append(execQuery.fetch_time_end)
+    
+    bd.plot_start_end(starts,ends,'multith_tasks')
 
     print("total time for N = {} executions : {} s".format(N,total_prog))
 #    print("mean execution time : {} s".format(np.mean(times_total)))
