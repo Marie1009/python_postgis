@@ -1,5 +1,5 @@
-select_point_value#SELECT ST_Value(altifr_p1.rast, ST_GeomFromText('POINT(175570.932 6796643.598)',2154)) FROM altifr_p1
+select_raster_0150_6825_o16#SELECT ST_AsGDALRaster(ST_Union(o_16_altifr_75m_0150_6825.rast), 'GTiff') FROM o_16_altifr_75m_0150_6825
+select_raster_0150_6825_o8#SELECT ST_AsGDALRaster(ST_Union(o_8_altifr_75m_0150_6825.rast), 'GTiff') FROM o_8_altifr_75m_0150_6825
 select_raster_0150_6825_o4#SELECT ST_AsGDALRaster(ST_Union(o_4_altifr_75m_0150_6825.rast), 'GTiff') FROM o_4_altifr_75m_0150_6825
 select_raster_0150_6825_o2#SELECT ST_AsGDALRaster(ST_Union(o_2_altifr_75m_0150_6825.rast), 'GTiff') FROM o_2_altifr_75m_0150_6825
-select_raster_altifr_p1#SELECT ST_AsGDALRaster(ST_Union(altifr_p1.rast), 'GTiff') FROM altifr_p1
 select_raster_0150_6825#SELECT ST_AsGDALRaster(ST_Union(altifr_75m_0150_6825.rast), 'GTiff') FROM altifr_75m_0150_6825
