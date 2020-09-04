@@ -379,7 +379,7 @@ def start_sync_file_queries(mode,file,chartname):
 
     bd.plot_start_end(starts,ends,chartname)
     #bd.plot_start_end(starts,ends,'synchronous_execution')
-
+    
 def query_table_overviews(max_o, table):
     names = qu.table_overviews_list(max_o,table)
 
