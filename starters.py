@@ -19,7 +19,7 @@ import time
 
 def exe_query_Ntimes_pool(query, N):
     #START CONNECTION POOL
-    pool = co.create_connection_pool(1,5,"postgis_test","postgres","admin","localhost","5432")
+    pool = co.create_connection_pool(1,5,"postgis_test","postgres","postgres","localhost","5432")
     times = []
     #for i in range(N):
     #   t = get_image(connection,'altifr_75m_0150_6825',154938.251,6821208.497, 500, 500)
@@ -44,7 +44,7 @@ def my_wait(conn):
             raise psycopg2.OperationalError("poll() returned %s" % state)
 
 def exe_query_async_Ntimes(query, N):
-    aconn = psycopg2.connect(database="postgis_test", user="postgres", host="127.0.0.1", port="5432", password="admin", _async=1)
+    aconn = psycopg2.connect(database="postgis_test", user="postgres", host="127.0.0.1", port="5432", password="postgres", _async=1)
     my_wait(aconn)
 
     acurs = aconn.cursor()      
@@ -86,7 +86,7 @@ def exe_query_async_Ntimes(query, N):
     
 def query_async_pool_Ntimes(query,N,nbpool):
    
-    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
+    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","postgres","localhost","5432",1)
     #time.sleep(3)
     times_exe = []
     times_fetch = []
@@ -284,7 +284,7 @@ class TasksList:
 
 def start_multith_tasks(nbthreads,nbpool,queries):
 
-    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
+    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","postgres","localhost","5432",1)
     N = len(queries)
     time.sleep(1)
     start = time.perf_counter()
@@ -400,7 +400,7 @@ def exe_wait_fetch_dict(pool,query,times_exe,times_wait,times_fetch,times_total,
 
 def start_multith(N,nbthreads,nbpool,query):
 #https://www.tutorialspoint.com/concurrency_in_python/concurrency_in_python_pool_of_threads.htm
-    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
+    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","postgres","localhost","5432",1)
 
     count = 0
     results = []
@@ -433,7 +433,7 @@ def start_multith(N,nbthreads,nbpool,query):
 
 def start_multith_file(nbthreads,nbpool,file,chartname):
 #https://www.tutorialspoint.com/concurrency_in_python/concurrency_in_python_pool_of_threads.htm
-    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
+    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","postgres","localhost","5432",1)
 
 
     times_exe = []
@@ -509,7 +509,7 @@ def start_sync_file_queries(mode,file,chartname):
     ends = []
 
     #START CONNECTION
-    connection = co.create_connection("postgis_test","postgres","admin","localhost","5432")
+    connection = co.create_connection("postgis_test","postgres","postgres","localhost","5432")
         
     f = open("results_seq_{}.txt".format(mode), "w")
     for key in keys_list:
@@ -539,8 +539,8 @@ def query_table_overviews(max_o, table, nbthreads,nbpool):
 
 
     if nbthreads == 0:  
-        pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",0)
-        #connection = co.create_connection("postgis_test","postgres","admin","localhost","5432")
+        pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","postgres","localhost","5432",0)
+        #connection = co.create_connection("postgis_test","postgres","postgres","localhost","5432")
         starts = []
         ends = []
         wends = []
