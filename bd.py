@@ -5,6 +5,7 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+from operator import add
 
 import psycopg2.extensions
 import select
@@ -92,7 +93,7 @@ def plot_points(points_conn, point_exe, point_wait,chart_name):
     #print(max(times))
     plt.close()
 
-def plot_start_end(starts, ends, chart_name):
+def plot_start_end_phases(starts, ends,  wends,  fends,chart_name):
 	#plt.ylabel('execution time (seconds)')
 	plt.figure(1, figsize=(4,2.5))
 	plt.xlabel('time (s)')
@@ -100,7 +101,8 @@ def plot_start_end(starts, ends, chart_name):
 
 	plt.title(chart_name)
 
-	total = max(ends) - min(starts) 	
+	total = max(fends) - min(starts) 	
+
 	sizes = []
 	for i in range(len(starts)):
 		sizes.append(ends[i]-starts[i]) 
@@ -110,20 +112,42 @@ def plot_start_end(starts, ends, chart_name):
 	starts[0]=0
 
 	
+	wait_sizes = []
+	for i in range(len(ends)):
+		wait_sizes.append(wends[i]-ends[i]) 
+	
+	
+	fetch_sizes = []
+	for i in range(len(wends)):
+		fetch_sizes.append(fends[i]-wends[i]) 
 
-	plt.barh(range(len(starts)),sizes,height=0.5,left=starts)
-	#plt.plot( starts, range(len(starts)),'g.')
-	#plt.plot( ends,range(len(ends)), 'r.')
+	#for i in range(len(fstarts)-1):
+	#	fstarts[i+1] = fstarts[i+1]- fstarts[0]
+	#fstarts[0]=0
+	plt.barh(range(len(sizes)),sizes,height=0.5,left=starts,color='b')
+	
+	left_wait = list( map(add, sizes, starts) )
+	
+
+	plt.barh(range(len(wait_sizes)),wait_sizes,height=0.5,left=left_wait,color='r')
+
+	
+	left_fetch = list( map(add, left_wait, wait_sizes) )
+	
+
+	plt.barh(range(len(fetch_sizes)),fetch_sizes,height=0.5,left=left_fetch,color='g')
+
+	red_patch = mpatches.Patch(color='red', label='wait')
+	green_patch = mpatches.Patch(color='green', label='fetch')
+	blue_patch = mpatches.Patch(color='blue', label='get connection\nstart query')
+
+	plt.legend(handles=[blue_patch,red_patch,green_patch])
 
 	print("total {} s".format(total))
 
 	plt.savefig("{}.png".format(chart_name),bbox_inches = "tight")
 	
 	plt.close()
-
-
-
-
 
 def main():
 	
