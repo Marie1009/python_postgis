@@ -523,42 +523,35 @@ def start_sync_file_queries(mode,file,chartname):
     bd.plot_start_end(starts,ends,chartname)
     #bd.plot_start_end(starts,ends,'synchronous_execution')
     
-def query_table_overviews(max_o, table, async):
+def query_table_overviews(max_o, table, nbthreads,nbpool):
     
-    
-    if async == 0:
-        
-        names_dict = qu.table_overviews_dict(max_o,table)
-        connection = co.create_connection("postgis_test","postgres","admin","localhost","5432")
+    names_list = qu.table_overviews_list(max_o,table)
+    qlist = []
+    for name in names_list:
+        #val = names[name]
+        query = "SELECT ST_AsGDALRaster(ST_Union({}.rast), 'GTiff') FROM {}".format(name,name)
+        #print(name)
+        qlist.append(query)
 
-        f = open("results_overview_queries.txt", "w")
-        keys_list =list(names_dict.keys())
-        keys_list.reverse()
-        print(keys_list)
 
+    if nbthreads == 0:  
+        pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",0)
+        #connection = co.create_connection("postgis_test","postgres","admin","localhost","5432")
         starts = []
         ends = []
-        for name in keys_list:
-            val = names_dict[name]
-            query = "SELECT ST_AsGDALRaster(ST_Union({}.rast), 'GTiff') FROM {}".format(val,val)
-            print("running query {}".format(name))
-            starts.append(time.perf_counter())
-            results = qu.execute_read_query(connection, query)
-            ends.append(time.perf_counter())
-            values = results[0]
-            runtime_exe = results[1]
-            runtime_fetchall = results[2]
-            f.write("query executed in {} seconds and fetched in {} seconds with overview {}\n".format(runtime_exe, runtime_fetchall,name))
-        bd.plot_start_end(starts,ends,'sync_overviews')
-        
-   
-    elif async == 1:
-        names_list = qu.table_overviews_list(max_o,table)
-        print(names_list)
-        qlist = []
-        for name in names_list:
-            #val = names[name]
-            query = "SELECT ST_AsGDALRaster(ST_Union({}.rast), 'GTiff') FROM {}".format(name,name)
-            qlist.append(query)
 
-        start_multith_tasks(10,10,qlist)
+        f = open("sync_overviews.txt", "w")
+        for q in qlist:
+            todo = QueryExecution(q,pool)
+            todo.startSeqQuery()
+            f.write("{}, {}, {}, {}, {}, {}, {}, {}\n".format(todo.query,todo.query_time_start,todo.query_time_submit,todo.query_time_end , todo.wait_time_start, todo.wait_time_end ,todo.fetch_time_start, todo.fetch_time_end))
+            starts.append(todo.query_time_start)
+            ends.append(todo.fetch_time_end)
+        
+        f.close()
+        bd.plot_start_end(starts,ends,'sync_overviews')
+     
+    else:
+        #print(names_list)
+        qlist.reverse()
+        start_multith_tasks(nbthreads,nbpool,qlist)
