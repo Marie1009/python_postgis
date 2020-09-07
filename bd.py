@@ -109,6 +109,8 @@ def plot_start_end(starts, ends, chart_name):
 		starts[i+1] = starts[i+1]- starts[0]
 	starts[0]=0
 
+	
+
 	plt.barh(range(len(starts)),sizes,height=0.5,left=starts)
 	#plt.plot( starts, range(len(starts)),'g.')
 	#plt.plot( ends,range(len(ends)), 'r.')
@@ -136,8 +138,8 @@ def main():
 	#conn = connections.create_connection("postgis_test","postgres","admin","localhost","5432")
 	#queries.execute_read_query(conn,q1)
 	#starters.start_multith_file(10,10,'queries.txt','async_execution')
-	starters.query_table_overviews(16,'altifr_75m_0150_6825',0)
-	starters.query_table_overviews(16,'altifr_75m_0150_6825',1)
+	starters.query_table_overviews(16,'altifr_75m_0150_6825',0,10)
+	starters.query_table_overviews(16,'altifr_75m_0150_6825',5,10)
 	
 
 if __name__== "__main__" :
