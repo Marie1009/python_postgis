@@ -155,7 +155,7 @@ def table_overviews_list(max_o,table):
     for p in powers:
         table_names.append("o_{}_{}".format(p,table))
         
-    table_names.reverse()
+    #table_names.reverse()
 #on renvoie la liste reverse pour qu'elle commence par les overviews les - detaillees
     return table_names
 
