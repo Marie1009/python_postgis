@@ -34,7 +34,7 @@ def my_wait(conn):
     while True:
         state = conn.poll()
         if state == psycopg2.extensions.POLL_OK:
-            print("my_wait : poll ok")
+            #print("my_wait : poll ok")
             break
         elif state == psycopg2.extensions.POLL_WRITE:
             select.select([], [conn.fileno()], [])
@@ -160,7 +160,7 @@ def query_async_pool_Ntimes(query,N,nbpool):
 def task_getconn(conn_pool):
     aconn  = conn_pool.getconn()
     my_wait(aconn)
-    print("get conn ok")
+    #print("get conn ok")
     return aconn
 
 def task_test():
@@ -177,7 +177,7 @@ def task_execute(aconn,query):
     end = time.perf_counter()
     runtime_exe = end - start
        
-    print("execute query ok")
+    #print("execute query ok")
     return acurs, runtime_exe
 
 def task_wait_fetch(curs):

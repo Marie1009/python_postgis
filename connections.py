@@ -29,7 +29,7 @@ def create_connection_pool(min_co, max_co, db_name, db_user, db_password, db_hos
                                   port = db_port,
                                   database = db_name, async_=async_param)
         if(threaded_postgreSQL_pool):
-            print("ASYNC Connection pool created successfully using ThreadedConnectionPool")
+            print("Connection pool created successfully using ThreadedConnectionPool")
 
     except (Exception, psycopg2.DatabaseError) as error :
         print ("Error while connecting to PostgreSQL", error)
