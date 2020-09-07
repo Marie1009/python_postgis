@@ -195,34 +195,14 @@ def task_wait_fetch(curs):
      #   print(result)
     runtime_fetchall = end_fetch - ewait
    
-    print("query done")
+    #print("query done")
     return runtime_wait, runtime_fetchall
 
-
-
-def start_multith_tasks(nbthreads,nbpool,queries):
-#https://www.tutorialspoint.com/concurrency_in_python/concurrency_in_python_pool_of_threads.htm
-    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
-
-
-    N = len(queries)
-
-  
-    start = time.perf_counter()
-#    class ThreadSafePool:
-#        def __init__(self, pool):
-#            self.pool = pool
-#            self.mutex = threading.Lock()
-#        def getconn(self):
-#            self.mutex.acquire()
-#            connection = self.pool.getconn()
-#            self.mutex.release()
-#            return connection
-    class QueryExecution:
+class QueryExecution:
         def __init__(self, query, pool):
             self.query = query
-            self.pool = pool
-
+            self.conn_pool = pool
+            
             self.create_time = 0
             self.query_time_start = 0
             self.query_time_submit = 0
@@ -234,7 +214,7 @@ def start_multith_tasks(nbthreads,nbpool,queries):
 
         def submitQuery(self):
             self.query_time_start = time.perf_counter()
-            self.connection = task_getconn(pool)
+            self.connection = task_getconn(self.conn_pool)
             self.query_cursor = self.connection.cursor()
             self.query_time_submit = time.perf_counter()
             self.query_cursor.execute(self.query)
@@ -250,9 +230,16 @@ def start_multith_tasks(nbthreads,nbpool,queries):
             self.result = self.query_cursor.fetchall()
             self.fetch_time_end = time.perf_counter()
             self.query_cursor.close()
-            self.pool.putconn(self.connection)
+            self.conn_pool.putconn(self.connection)
 
-    class TasksList:
+        def startSeqQuery(self):
+            self.submitQuery()
+            self.waitForQueryResult()
+            self.fetchQueryResult()
+
+
+
+class TasksList:
         def __init__(self):
             self.tasks = []
             self.execQueries = []
@@ -261,6 +248,7 @@ def start_multith_tasks(nbthreads,nbpool,queries):
         def initQueries(self, queries, pool):
             for i in range(len(queries)):
                 self.execQueries.append(QueryExecution(queries.pop(), pool))
+
             self.tasks = deque()
             def fetchLambda(tasksList, execQuery):
                 execQuery.fetchQueryResult()
@@ -294,6 +282,22 @@ def start_multith_tasks(nbthreads,nbpool,queries):
             return hasTask
 
 
+def start_multith_tasks(nbthreads,nbpool,queries):
+
+    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
+    N = len(queries)
+  
+    start = time.perf_counter()
+#    class ThreadSafePool:
+#        def __init__(self, pool):
+#            self.pool = pool
+#            self.mutex = threading.Lock()
+#        def getconn(self):
+#            self.mutex.acquire()
+#            connection = self.pool.getconn()
+#            self.mutex.release()
+#            return connection    
+
     allTasks = TasksList()
     allTasks.initQueries(queries, pool)
 #    for task, param in allTasks.tasks:
@@ -317,7 +321,6 @@ def start_multith_tasks(nbthreads,nbpool,queries):
     starts = []
     ends = []
 
-
     for future in futures:
         hasThrown = future.exception()
         if hasThrown:
@@ -325,10 +328,11 @@ def start_multith_tasks(nbthreads,nbpool,queries):
         print(future.result)
     for execQuery in allTasks.execQueries:
         print (execQuery.result)
+
         starts.append(execQuery.query_time_start)
         ends.append(execQuery.fetch_time_end)
     
-    bd.plot_start_end(starts,ends,'multith_tasks')
+    bd.plot_start_end(starts,ends,'async_overviews')
 
     print("total time for N = {} executions : {} s".format(N,total_prog))
 #    print("mean execution time : {} s".format(np.mean(times_total)))
@@ -387,8 +391,6 @@ def exe_wait_fetch_dict(pool,query,times_exe,times_wait,times_fetch,times_total,
     times_total.append(total)   
 
     perf.append("query : {} execution : {}s , wait : {}s, fetch : {}s, total : {}s \n".format(query,res_exe[1],times[0],times[1],total))
-
-
 
 def start_multith(N,nbthreads,nbpool,query):
 #https://www.tutorialspoint.com/concurrency_in_python/concurrency_in_python_pool_of_threads.htm
