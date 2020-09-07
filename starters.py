@@ -541,8 +541,8 @@ def query_table_overviews(max_o, table, nbthreads,nbpool):
         ends = []
 
         f = open("sync_overviews.txt", "w")
-        for q in qlist:
-            todo = QueryExecution(q,pool)
+        for i in range(len(qlist)):
+            todo = QueryExecution(qlist.pop(),pool)
             todo.startSeqQuery()
             f.write("{}, {}, {}, {}, {}, {}, {}, {}\n".format(todo.query,todo.query_time_start,todo.query_time_submit,todo.query_time_end , todo.wait_time_start, todo.wait_time_end ,todo.fetch_time_start, todo.fetch_time_end))
             starts.append(todo.query_time_start)
@@ -553,5 +553,5 @@ def query_table_overviews(max_o, table, nbthreads,nbpool):
      
     else:
         #print(names_list)
-        qlist.reverse()
+        #qlist.reverse()
         start_multith_tasks(nbthreads,nbpool,qlist)
