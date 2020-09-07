@@ -286,7 +286,7 @@ def start_multith_tasks(nbthreads,nbpool,queries):
 
     pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","admin","localhost","5432",1)
     N = len(queries)
-  
+    time.sleep(1)
     start = time.perf_counter()
 #    class ThreadSafePool:
 #        def __init__(self, pool):
@@ -320,6 +320,8 @@ def start_multith_tasks(nbthreads,nbpool,queries):
 
     starts = []
     ends = []
+    fends = []
+    wends = []
 
     for future in futures:
         hasThrown = future.exception()
@@ -332,9 +334,11 @@ def start_multith_tasks(nbthreads,nbpool,queries):
         print (execQuery.result)
         f.write("{}, {}, {}, {}, {}, {}, {}, {}\n".format(execQuery.query,execQuery.query_time_start,execQuery.query_time_submit,execQuery.query_time_end , execQuery.wait_time_start, execQuery.wait_time_end ,execQuery.fetch_time_start, execQuery.fetch_time_end))
         starts.append(execQuery.query_time_start)
-        ends.append(execQuery.fetch_time_end)
+        ends.append(execQuery.query_time_submit)
+        wends.append(execQuery.wait_time_end)
+        fends.append(execQuery.fetch_time_end)
     f.close()
-    bd.plot_start_end(starts,ends,'async_overviews')
+    bd.plot_start_end_phases(starts,ends,wends,fends,'async_overviews_phases')
 
     print("total time for N = {} executions : {} s".format(N,total_prog))
 #    print("mean execution time : {} s".format(np.mean(times_total)))
@@ -539,17 +543,24 @@ def query_table_overviews(max_o, table, nbthreads,nbpool):
         #connection = co.create_connection("postgis_test","postgres","admin","localhost","5432")
         starts = []
         ends = []
+        wends = []
+        fends = []
 
         f = open("sync_overviews.txt", "w")
-        for i in range(len(qlist)):
-            todo = QueryExecution(qlist.pop(),pool)
+        qlist.reverse()
+        for q in qlist:
+            print("sync query")
+            todo = QueryExecution(q,pool)
             todo.startSeqQuery()
             f.write("{}, {}, {}, {}, {}, {}, {}, {}\n".format(todo.query,todo.query_time_start,todo.query_time_submit,todo.query_time_end , todo.wait_time_start, todo.wait_time_end ,todo.fetch_time_start, todo.fetch_time_end))
             starts.append(todo.query_time_start)
-            ends.append(todo.fetch_time_end)
+            ends.append(todo.query_time_submit)
+            wends.append(todo.wait_time_end)
+            fends.append(todo.fetch_time_end)
+
         
         f.close()
-        bd.plot_start_end(starts,ends,'sync_overviews')
+        bd.plot_start_end_phases(starts,ends,wends,fends,'sync_overviews_phases')
      
     else:
         #print(names_list)
