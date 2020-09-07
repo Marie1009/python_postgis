@@ -326,12 +326,14 @@ def start_multith_tasks(nbthreads,nbpool,queries):
         if hasThrown:
             raise hasThrown
         print(future.result)
+
+    f = open("async_overviews.txt", "w")
     for execQuery in allTasks.execQueries:
         print (execQuery.result)
-
+        f.write("{}, {}, {}, {}, {}, {}, {}, {}\n".format(execQuery.query,execQuery.query_time_start,execQuery.query_time_submit,execQuery.query_time_end , execQuery.wait_time_start, execQuery.wait_time_end ,execQuery.fetch_time_start, execQuery.fetch_time_end))
         starts.append(execQuery.query_time_start)
         ends.append(execQuery.fetch_time_end)
-    
+    f.close()
     bd.plot_start_end(starts,ends,'async_overviews')
 
     print("total time for N = {} executions : {} s".format(N,total_prog))
