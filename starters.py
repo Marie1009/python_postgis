@@ -284,7 +284,7 @@ class TasksList:
 
 def start_multith_tasks(nbthreads,nbpool,queries):
 
-    pool = co.create_connection_pool(1,nbpool,"postgis_test","postgres","postgres","localhost","5432",1)
+    pool = co.create_connection_pool(nbpool,nbpool,"postgis_test","postgres","postgres","localhost","5432",1)
     N = len(queries)
     time.sleep(1)
     start = time.perf_counter()
